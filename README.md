@@ -11,6 +11,8 @@ Read native `.ngs` instrument files or `.txt` exports · auto-detect reference &
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 ![Status](https://img.shields.io/badge/status-v1.0.0-success.svg)
 
+**English** · [简体中文](README.zh-CN.md)
+
 </div>
 
 ---
