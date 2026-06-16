@@ -1,0 +1,31 @@
+cff-version: 1.2.0
+message: "If you use this software in your research, please cite it as below."
+title: "SFG Processor: a desktop tool for batch Sum-Frequency Generation spectroscopy data processing"
+abstract: >-
+  A desktop application (Flask + web UI, packaged as a standalone Windows
+  executable) for batch-processing Sum-Frequency Generation (SFG) vibrational
+  spectra. It reads native instrument .ngs files and plain .txt exports,
+  subtracts NoVis backgrounds, normalises test samples against a reference
+  (e.g. quartz), and renders publication-style scatter-with-fit figures.
+authors:
+  - family-names: "Li"
+    given-names: "Jia"
+    affiliation: "PhD Researcher"
+keywords:
+  - "sum-frequency generation"
+  - "SFG spectroscopy"
+  - "surface science"
+  - "interfaces"
+  - "data processing"
+  - "spectroscopy"
+license: MIT
+type: software
+version: 1.0.0
+date-released: "2026-05-22"
+preferred-citation:
+  type: software
+  title: "SFG Processor"
+  authors:
+    - family-names: "Li"
+      given-names: "Jia"
+  year: 2026

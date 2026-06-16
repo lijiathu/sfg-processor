@@ -1,0 +1,47 @@
+# ── Python ────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+*.spec
+
+# ── PyInstaller / packaging ───────────────
+*.manifest
+
+# ── Virtual envs ──────────────────────────
+venv/
+.venv/
+env/
+ENV/
+
+# ── Tooling caches ────────────────────────
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ── OS junk ───────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Editors ───────────────────────────────
+.vscode/
+.idea/
+*.swp
+
+# ── Claude Code local settings ────────────
+.claude/
+
+# ── Project: do NOT commit experimental data
+#     The real experimental datasets live under data/ and are kept private.
+data/
+
+# Generated processing outputs (Excel + figures) anywhere
+processed_SFG.xlsx
+*_normalized*.png
+*_denoised.png
