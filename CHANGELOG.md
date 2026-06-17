@@ -4,6 +4,21 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] — 2026-06-17
+
+### Changed
+- **English-only interface** — all UI labels, toasts, and backend messages
+  are now in English (bilingual README still ships both languages).
+- **Wavenumber windows start empty** — no preset ranges; the user adds only
+  the windows they want via "+ Add window". An empty selection still produces
+  the full-range figure.
+- **Water example dataset** — `example_data/` regenerated as a realistic
+  water O–H stretch spectrum; README screenshot updated (3100–3800 cm⁻¹).
+
+### Fixed
+- File-name parser now handles sample names containing underscores
+  (e.g. `water_3200_Purge`); covered by new unit tests.
+
 ## [1.0.0] — 2026-05-22
 
 ### Added
