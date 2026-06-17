@@ -193,12 +193,42 @@ def _free_port(preferred=5127):
         return s.getsockname()[1]
 
 
+def _wait_for_server(url, attempts=80):
+    import time
+    import urllib.request
+    for _ in range(attempts):
+        try:
+            urllib.request.urlopen(url, timeout=0.5)
+            return True
+        except Exception:
+            time.sleep(0.1)
+    return False
+
+
 def main():
     port = _free_port()
     url = f"http://127.0.0.1:{port}"
-    threading.Timer(1.0, lambda: webbrowser.open(url)).start()
-    print(f"SFG Processor running at {url}")
-    app.run(host="127.0.0.1", port=port, debug=False)
+
+    # run Flask in a background daemon thread (stopped when the app exits)
+    server = threading.Thread(
+        target=lambda: app.run(host="127.0.0.1", port=port,
+                               debug=False, use_reloader=False),
+        daemon=True,
+    )
+    server.start()
+    if not _wait_for_server(url):
+        print("Server failed to start.")
+        return
+
+    # open a native desktop window (no browser/address bar); fall back to browser
+    try:
+        import webview
+        webview.create_window("SFG Processor", url, width=900, height=940,
+                              min_size=(640, 720))
+        webview.start()
+    except Exception:
+        webbrowser.open(url)
+        server.join()
 
 
 if __name__ == "__main__":
