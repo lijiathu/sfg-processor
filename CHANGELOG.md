@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [1.1.0] — 2026-06-17
 
+### Added
+- **Native desktop window** — the app now opens as a standalone window
+  (via pywebview / Edge WebView2) instead of a system browser tab. No address
+  bar, no browser; closing the window exits the app.
+
 ### Changed
 - **English-only interface** — all UI labels, toasts, and backend messages
   are now in English (bilingual README still ships both languages).
