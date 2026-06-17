@@ -21,7 +21,7 @@ Read native `.ngs` instrument files or `.txt` exports · auto-detect reference &
   <img src="docs/img/spectrum_example.png" width="560" alt="Example normalised SFG spectrum with scatter points and a smooth fit">
 </p>
 
-<p align="center"><em>Example output — normalised SFG spectrum, experimental scatter points with a Savitzky–Golay fit, rendered in a journal-ready style.</em></p>
+<p align="center"><em>Example output — normalised water O–H stretch SFG spectrum (3100–3800 cm⁻¹), experimental scatter points with a Savitzky–Golay fit, journal-ready style.</em></p>
 
 ---
 

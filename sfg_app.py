@@ -44,7 +44,7 @@ def _frontend_path():
 #  tiny in-memory job state (single-user local tool)
 # --------------------------------------------------------------------------- #
 STATE = {
-    "current": 0, "total": 5, "message": "就绪",
+    "current": 0, "total": 5, "message": "Ready",
     "done": True, "busy": False, "error": None, "result": None,
 }
 
@@ -89,7 +89,7 @@ def api_browse():
         root = tk.Tk()
         root.withdraw()
         root.attributes("-topmost", True)
-        path = filedialog.askdirectory(parent=root, title="选择实验数据文件夹")
+        path = filedialog.askdirectory(parent=root, title="Select experiment data folder")
         root.destroy()
     except Exception as e:  # pragma: no cover
         return jsonify({"path": "", "error": str(e)}), 500
@@ -121,17 +121,17 @@ def api_scan():
 @app.route("/api/process", methods=["POST"])
 def api_process():
     if STATE["busy"]:
-        return jsonify({"error": "正在处理中，请稍候"}), 409
+        return jsonify({"error": "A job is already running; please wait"}), 409
     d = request.get_json(silent=True) or {}
     folder = d.get("folder", "")
     ref = d.get("ref", "")
     vis = float(d.get("vis", 1030))
-    ranges = d.get("ranges") or [(3000, 3800)]
+    ranges = d.get("ranges") or []
     ranges = [(int(a), int(b)) for a, b in ranges if a < b]
 
     def run():
         STATE.update(busy=True, done=False, error=None, result=None,
-                     current=0, total=5, message="启动…")
+                     current=0, total=5, message="Starting…")
         try:
             out = process_experiment(folder, ref, lambda_vis=vis,
                                      x_ranges=ranges,
@@ -139,9 +139,9 @@ def api_process():
             imgs = sorted(glob.glob(os.path.join(folder, "*_normalized_*.png")))
             STATE.update(done=True, busy=False,
                          result={"excel": out, "images": imgs, "folder": folder},
-                         message="完成")
+                         message="Done")
         except Exception as e:  # pragma: no cover
-            STATE.update(done=True, busy=False, error=str(e), message="处理失败")
+            STATE.update(done=True, busy=False, error=str(e), message="Failed")
 
     threading.Thread(target=run, daemon=True).start()
     return jsonify({"started": True})

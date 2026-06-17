@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>SFG · 和频光谱处理台</title>
+<title>SFG · Spectrum Studio</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Hanken+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -219,57 +219,57 @@
   </header>
 
   <p class="lede rise d2">
-    支持读取 <em>.ngs</em> / <em>.txt</em> 光谱。一键完成：背景扣除、标准样品归一化、散点拟合出图。
+    Reads <em>.ngs</em> / <em>.txt</em> spectra. One click: background subtraction, reference normalisation, and scatter-with-fit figures.
   </p>
 
   <section class="card rise d3">
-    <h2 class="section-title"><span class="num">01 / DATA</span> 选定实验目录</h2>
-    <p class="section-sub">支持 .txt / .ngs 等数据格式，同名优先读取 .txt 格式。</p>
+    <h2 class="section-title"><span class="num">01 / DATA</span> Experiment Folder</h2>
+    <p class="section-sub">Supports .txt / .ngs data formats; .txt is read preferentially when both exist.</p>
 
     <div class="field">
-      <label>数据目录</label>
+      <label>Data Folder</label>
       <div class="ctrl">
-        <input class="path" id="folder" type="text" placeholder="点击右侧选择，或直接粘贴路径…" />
-        <button class="btn-tiny" id="browse">选择目录</button>
+        <input class="path" id="folder" type="text" placeholder="Click to select, or paste a path…" />
+        <button class="btn-tiny" id="browse">Select</button>
       </div>
     </div>
 
     <div class="field">
-      <label>标准样品</label>
-      <div class="ctrl"><select id="ref"><option value="">— 先扫描目录 —</option></select></div>
+      <label>Reference</label>
+      <div class="ctrl"><select id="ref"><option value="">— Select a folder first —</option></select></div>
     </div>
 
     <div class="field">
-      <label>可见光 λ</label>
+      <label>Visible λ</label>
       <div class="ctrl">
         <input id="vis" type="number" value="1030" style="max-width:120px;flex:0 0 120px" />
         <span class="unit">nm</span>
       </div>
     </div>
 
-    <h2 class="section-title" style="margin-top:28px"><span class="num">02 / RANGE</span> 放大波数段</h2>
-    <p class="section-sub">无论是否勾选，总会输出一张全范围归一化图；每勾选一段另出一张局部放大图。</p>
+    <h2 class="section-title" style="margin-top:28px"><span class="num">02 / RANGE</span> Wavenumber Windows</h2>
+    <p class="section-sub">A full-range figure is always produced. Click "+ Add window" to define each zoomed range you want.</p>
     <div id="ranges"></div>
 
     <div class="readout" id="readout">
-      <div class="empty">尚无数据 · 选择目录并点击「扫描」以预览识别结果。</div>
+      <div class="empty">No data yet · select a folder to preview detected samples.</div>
     </div>
 
     <div class="action">
-      <button class="btn-primary" id="run" disabled>处理并出图<span class="arrow">→</span></button>
+      <button class="btn-primary" id="run" disabled>Process &amp; Plot<span class="arrow">→</span></button>
     </div>
 
     <div class="progress" id="prog" style="display:none">
       <div class="bar"><i id="barfill"></i></div>
-      <div class="status"><span id="statustext">就绪</span><span class="pct" id="pct">0%</span></div>
+      <div class="status"><span id="statustext">Ready</span><span class="pct" id="pct">0%</span></div>
     </div>
 
     <div class="results" id="results" style="display:none">
-      <h3>输出</h3>
-      <p class="hint">归一化散点拟合图（点击放大）· 同目录下另有 Excel 与去噪图。</p>
+      <h3>Output</h3>
+      <p class="hint">Normalised scatter-with-fit figures (click to enlarge) · Excel and denoised figures are in the same folder.</p>
       <div class="gallery" id="gallery"></div>
       <div class="result-actions">
-        <button class="btn-tiny" id="openfolder">打开输出目录</button>
+        <button class="btn-tiny" id="openfolder">Open Output Folder</button>
       </div>
     </div>
   </section>
@@ -305,12 +305,12 @@ function rangeRow(lo, hi){
   const row = document.createElement("div");
   row.className = "range-row";
   row.innerHTML = `
-    <input type="number" class="rmin" value="${lo}" />
+    <input type="number" class="rmin" value="${lo}" placeholder="min" />
     <span class="dash">—</span>
-    <input type="number" class="rmax" value="${hi}" />
+    <input type="number" class="rmax" value="${hi}" placeholder="max" />
     <span class="cm">cm⁻¹</span>
-    <button class="iconbtn del" title="删除">✕</button>`;
-  row.querySelector(".del").onclick = ()=>{ if(rangesEl.children.length>1){row.remove()} else toast("至少保留一段",true) };
+    <button class="iconbtn del" title="Remove">✕</button>`;
+  row.querySelector(".del").onclick = ()=>{ row.remove() };
   return row;
 }
 function getRanges(){
@@ -320,58 +320,56 @@ function getRanges(){
     const b=parseInt(r.querySelector(".rmax").value,10);
     if(Number.isFinite(a)&&Number.isFinite(b)&&a<b) out.push([a,b]);
   }
-  return out.length?out:[[3000,3800]];
+  return out;  // may be empty -> only the full-range figure is produced
 }
-rangesEl.appendChild(rangeRow(3000,3800));
-rangesEl.appendChild(rangeRow(3000,3750));
 
 /* add-range button */
 {
   const add = document.createElement("button");
-  add.className="btn-tiny btn-ghost"; add.textContent="+ 添加波数段";
+  add.className="btn-tiny btn-ghost"; add.textContent="+ Add window";
   add.style.marginTop="6px";
-  add.onclick=()=>rangesEl.appendChild(rangeRow(3200,3700));
+  add.onclick=()=>rangesEl.appendChild(rangeRow("", ""));
   rangesEl.after(add);
 }
 
 /* browse via backend tkinter dialog */
 $("#browse").onclick = async ()=>{
-  toast("请在弹出的窗口中选择文件夹…");
+  toast("Pick a folder in the dialog…");
   try{
     const r = await fetch("/api/browse",{method:"POST"}).then(r=>r.json());
     if(r.path){ folder.value=r.path; await scan(); }
-    else if(r.error) toast("文件夹选择失败", true);
-  }catch(e){ toast("无法打开选择器", true); }
+    else if(r.error) toast("Folder selection failed", true);
+  }catch(e){ toast("Could not open the picker", true); }
 };
 
 async function scan(){
   const f = folder.value.trim();
-  if(!f){ toast("请先选择数据目录", true); return; }
-  ref.innerHTML="<option>识别中…</option>";
+  if(!f){ toast("Select a data folder first", true); return; }
+  ref.innerHTML="<option>Detecting…</option>";
   const r = await fetch("/api/scan",{method:"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify({folder:f})}).then(r=>r.json());
   if(r.error){ readout.innerHTML=`<div class="empty" style="color:var(--danger)">${r.error}</div>`;
-    ref.innerHTML="<option value=''>— 无 —</option>"; run.disabled=true; return; }
+    ref.innerHTML="<option value=''>— None —</option>"; run.disabled=true; return; }
   ref.innerHTML = r.samples.map(s=>`<option value="${s}" ${s===r.default?"selected":""}>${s}</option>`).join("");
   readout.innerHTML = r.preview.map(p=>`
     <div class="row">
       <span class="name ${p.ref?'ref':''}">${p.name}</span>
       ${p.ref?'<span class="tag ref">REF</span>':`<span class="tag">×${p.count}</span>`}
       <span class="waves">${p.waves}</span>
-    </div>`).join("") || `<div class="empty">未识别到样品</div>`;
+    </div>`).join("") || `<div class="empty">No samples detected</div>`;
   run.disabled = r.samples.length<2;
-  if(r.samples.length<2) toast("需至少 1 个标准样品 + 1 个测试样品", true);
+  if(r.samples.length<2) toast("Need at least 1 reference + 1 test sample", true);
 }
 /* manual path edit → re-scan on blur */
 folder.addEventListener("change", ()=>{ if(folder.value.trim()) scan(); });
 
 run.onclick = async ()=>{
   const f = folder.value.trim();
-  if(!f){ toast("请先选择数据目录", true); return; }
+  if(!f){ toast("Select a data folder first", true); return; }
   const ranges = getRanges();
   results.style.display="none"; prog.style.display="block";
   run.disabled=true; barfill.style.width="0%"; pct.textContent="0%";
-  statustext.textContent="启动…";
+  statustext.textContent="Starting…";
   await fetch("/api/process",{method:"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify({folder:f, ref:ref.value, vis:parseFloat(vis.value)||1030, ranges})});
   pollTimer = setInterval(checkStatus, 350);
@@ -384,21 +382,21 @@ function checkStatus(){
     statustext.textContent=s.message;
     if(s.done){
       clearInterval(pollTimer); pollTimer=null; run.disabled=false;
-      if(s.error){ toast("处理失败："+s.error, true); statustext.textContent="失败"; }
+      if(s.error){ toast("Failed: "+s.error, true); statustext.textContent="Failed"; }
       else if(s.result){ showResult(s.result); }
     }
   });
 }
 
 function showResult(res){
-  statustext.textContent="完成";
-  toast("处理完成 ✦");
+  statustext.textContent="Done";
+  toast("Processing complete ✦");
   results.style.display="block";
   gallery.innerHTML = res.images.map(p=>{
     const name=p.split(/[\\/]/).pop().replace(/\.png$/,"");
     const url=`/file?folder=${encodeURIComponent(res.folder)}&path=${encodeURIComponent(p)}`;
     return `<a class="thumb" href="${url}" target="_blank"><img loading="lazy" src="${url}"/><div class="cap">${name}</div></a>`;
-  }).join("") || `<div class="empty">该范围内无可绘制的归一化数据</div>`;
+  }).join("") || `<div class="empty">No plottable normalised data in this range</div>`;
   // excel download + open folder
   const ex = res.excel;
   const dl = `/file?folder=${encodeURIComponent(res.folder)}&path=${encodeURIComponent(ex)}&download=1`;

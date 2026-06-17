@@ -24,14 +24,14 @@ def parse_filename(fn_stem):
     """
     parts = fn_stem.split("_")
     if len(parts) < 2:
-        raise ValueError(f"无法解析文件名: {fn_stem}")
+        raise ValueError(f"Cannot parse filename: {fn_stem}")
     wave_idx = None
     for i, p in enumerate(parts):
         if p.isdigit():
             wave_idx = i
             break
     if wave_idx is None or wave_idx == 0:
-        raise ValueError(f"无法解析波数: {fn_stem}")
+        raise ValueError(f"Cannot parse wavenumber: {fn_stem}")
     sample = "_".join(parts[:wave_idx])
     wave = int(parts[wave_idx])
     flags = parts[wave_idx + 1:]
@@ -64,13 +64,13 @@ def scan_folder(folder_path):
                 if f.endswith(".txt") or stem not in by_stem:
                     by_stem[stem] = fpath
     if not by_stem:
-        raise FileNotFoundError("未找到任何 .txt 或 .ngs 文件，请检查路径。")
+        raise FileNotFoundError("No .txt or .ngs files found; check the path.")
     meta_list = []
     for stem, fpath in by_stem.items():
         try:
             sample, wave, flags, is_bg = parse_filename(stem)
         except ValueError as e:
-            warnings.warn(f"跳过无法解析文件 {stem}: {e}")
+            warnings.warn(f"Skipping unparseable file {stem}: {e}")
             continue
         meta_list.append({
             "stem": stem, "path": fpath, "sample": sample,
@@ -93,19 +93,19 @@ def read_ngs_v1(path):
     with open(path, "rb") as f:
         data = f.read()
     if data[:10] != b"NGSNextGen":
-        raise ValueError("不是 NGSNextGen 格式")
+        raise ValueError("Not an NGSNextGen file")
     ver = struct.unpack("<I", data[10:14])[0]
     if ver != 1:
-        raise ValueError(f"不支持的 NGS 版本 {ver}（仅支持 v1）")
+        raise ValueError(f"Unsupported NGS version {ver} (only v1 supported)")
     # Anchor: 0xFFFFFFFF precedes the data count
     anchor = data.find(b"\xff\xff\xff\xff")
     if anchor < 0:
-        raise ValueError("未找到数据锚点")
+        raise ValueError("Data anchor not found")
     n = struct.unpack("<I", data[anchor + 4:anchor + 8])[0]
     # intensity array starts at anchor + 4(count) +4 +2 +4(count) +2 = anchor+16
     i_start = anchor + 16
     if i_start + n * 4 > len(data):
-        raise ValueError("数据长度不足")
+        raise ValueError("Insufficient data length")
     intens = np.frombuffer(data[i_start:i_start + n * 4], dtype="<f4").astype(float)
     # wavelength array: scan byte-by-byte after intens end for a float32 array
     # that is finite, in the 500-900 nm range, and monotonic
@@ -119,7 +119,7 @@ def read_ngs_v1(path):
             break
         pos += 1
     if wl is None:
-        raise ValueError("未找到波长数组")
+        raise ValueError("Wavelength array not found")
     return wl, intens
 
 
@@ -307,12 +307,12 @@ def process_experiment(folder_path, ref_sample_name, lambda_vis=1030.0,
 
     # 1. Scan files
     if progress_callback:
-        progress_callback(0, 5, "扫描文件...")
+        progress_callback(0, 5, "Scanning files...")
     meta_list = scan_folder(folder_path)
 
     # 2. Read and convert data
     if progress_callback:
-        progress_callback(1, 5, "读取数据...")
+        progress_callback(1, 5, "Reading data...")
     data_series = {}
     for meta in meta_list:
         df = read_sfg_data(meta["path"])
@@ -326,7 +326,7 @@ def process_experiment(folder_path, ref_sample_name, lambda_vis=1030.0,
 
     # 3. Build denoised data per sample
     if progress_callback:
-        progress_callback(2, 5, "去噪处理...")
+        progress_callback(2, 5, "Denoising...")
     samples = sorted({m["sample"] for m in meta_list})
     meta_lookup = {
         (m["sample"], m["wave"], tuple(sorted(f.lower() for f in m["flags"])), m["is_background"]): m
@@ -354,18 +354,18 @@ def process_experiment(folder_path, ref_sample_name, lambda_vis=1030.0,
                 cleaned = sfg_series - bg_series
             else:
                 cleaned = sfg_series
-                warnings.warn(f"样品 {sample} 波数 {m['wave']} flags {m['flags']} 无背景文件，保留原始")
+                warnings.warn(f"Sample {sample} wavenumber {m['wave']} flags {m['flags']} has no background file; keeping raw")
             df_samp[colname] = cleaned
         df_samp["sum"] = df_samp.iloc[:, 1:].sum(axis=1)
         sample_sheets[sample] = df_samp
 
     # 4. Normalize
     if progress_callback:
-        progress_callback(3, 5, "归一化...")
+        progress_callback(3, 5, "Normalising...")
     test_samples = [s for s in samples if s != ref_sample_name]
     for sample in test_samples:
         if sample not in sample_sheets or ref_sample_name not in sample_sheets:
-            warnings.warn(f"样品 {sample} 或标准样品 {ref_sample_name} 缺少数据，跳过归一化")
+            warnings.warn(f"Sample {sample} or reference {ref_sample_name} missing data; skipping normalisation")
             continue
         df_w = sample_sheets[sample]
         df_ref = sample_sheets[ref_sample_name]
@@ -390,7 +390,7 @@ def process_experiment(folder_path, ref_sample_name, lambda_vis=1030.0,
     # 6. Plot — Nature style (scatter + fit).
     #    Always emit a full-range figure; each selected range adds a zoomed one.
     if progress_callback:
-        progress_callback(4, 5, "绘图...")
+        progress_callback(4, 5, "Plotting...")
     _set_nature_style()
     for sample in test_samples:
         norm_key = sample + "_normalized"
@@ -413,5 +413,5 @@ def process_experiment(folder_path, ref_sample_name, lambda_vis=1030.0,
                        os.path.join(folder_path, f"{sample}_denoised.png"))
 
     if progress_callback:
-        progress_callback(5, 5, "完成！")
+        progress_callback(5, 5, "Done!")
     return output_excel

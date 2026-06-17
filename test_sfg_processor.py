@@ -194,7 +194,7 @@ class TestReadNgsV1:
         blob = b"NGSNextGen" + struct.pack("<I", 3) + b"\x00" * 40
         fpath = tmp_path / "old.ngs"
         fpath.write_bytes(blob)
-        with pytest.raises(ValueError, match="版本"):
+        with pytest.raises(ValueError, match="version"):
             read_ngs_v1(str(fpath))
 
     def test_read_sfg_data_dispatches_ngs(self, tmp_path):
