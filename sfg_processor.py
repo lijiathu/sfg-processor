@@ -169,6 +169,7 @@ def _set_nature_style():
         "legend.frameon": False,
         "legend.fontsize": 9.5,
         "mathtext.default": "regular",
+        "mathtext.fontset": "dejavusans",
     })
 
 
@@ -226,18 +227,16 @@ def _plot_nature(norm_df, sample, ref_sample, save_path, xlim=None):
     if len(xs) < 7:
         return
 
-    # y-limits from the smooth fit (robust to outliers), with a little air
-    y_lo = float(np.nanmin(yf))
+    # y-axis starts from 0; upper bound from the smooth fit with a little air
     y_hi = float(np.nanmax(yf))
-    pad = (y_hi - y_lo) * 0.08 if y_hi > y_lo else max(abs(y_hi) * 0.1, 1.0)
-    y_lo -= pad
-    y_hi += pad
+    y_lo = 0.0
+    y_hi = y_hi + (y_hi * 0.08 if y_hi > 0 else 1.0)
 
     if xlim is None:
         xlim = (float(xs.min()), float(xs.max()))
         title_range = "full range"
     else:
-        title_range = f"{xlim[0]}–{xlim[1]} cm⁻¹"
+        title_range = f"{xlim[0]}-{xlim[1]} cm$^{{-1}}$"
 
     fig, ax = plt.subplots(figsize=(5.4, 3.6))
     ax.scatter(xs, ys, s=11, c="#c9ced6", edgecolors="none", alpha=0.85,
@@ -245,7 +244,7 @@ def _plot_nature(norm_df, sample, ref_sample, save_path, xlim=None):
     ax.plot(xs, yf, color="#1b3a4b", linewidth=1.7, zorder=3, label="fit")
     ax.set_xlim(xlim)
     ax.set_ylim(y_lo, y_hi)
-    ax.set_xlabel("Wavenumber / cm⁻¹")
+    ax.set_xlabel(r"Wavenumber (cm$^{-1}$)")
     ax.set_ylabel("SFG signal (a.u.)")
     ax.set_title(f"{sample} / {ref_sample}   ({title_range})",
                  loc="left", pad=8)
