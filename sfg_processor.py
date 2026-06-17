@@ -237,7 +237,7 @@ def _plot_nature(norm_df, sample, ref_sample, save_path, xlim=None):
         xlim = (float(xs.min()), float(xs.max()))
         title_range = "full range"
     else:
-        title_range = f"{xlim[0]}–{xlim[1]} cm$^{{-1}}$"
+        title_range = f"{xlim[0]}–{xlim[1]} cm⁻¹"
 
     fig, ax = plt.subplots(figsize=(5.4, 3.6))
     ax.scatter(xs, ys, s=11, c="#c9ced6", edgecolors="none", alpha=0.85,
@@ -245,8 +245,8 @@ def _plot_nature(norm_df, sample, ref_sample, save_path, xlim=None):
     ax.plot(xs, yf, color="#1b3a4b", linewidth=1.7, zorder=3, label="fit")
     ax.set_xlim(xlim)
     ax.set_ylim(y_lo, y_hi)
-    ax.set_xlabel(r"IR Wavenumber (cm$^{-1}$)")
-    ax.set_ylabel("Normalized SFG Intensity")
+    ax.set_xlabel("Wavenumber / cm⁻¹")
+    ax.set_ylabel("SFG signal (a.u.)")
     ax.set_title(f"{sample} / {ref_sample}   ({title_range})",
                  loc="left", pad=8)
     ax.minorticks_on()
