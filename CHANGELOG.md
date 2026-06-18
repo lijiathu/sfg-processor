@@ -4,6 +4,23 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.2.0] — 2026-06-18
+
+### Added
+- **Optional curve fit** — new "Curve fit" switch in the UI (on by default).
+  Turn it off to plot scatter points only, without the smooth fit line.
+
+### Changed
+- **Show-all-points Y-scaling** — Y-axis starts at 0 and is scaled from the
+  raw data maximum so every point stays visible (no clipping).
+- **Cleaner axis labels** — `Wavenumber (cm⁻¹)` via mathtext (no more tofu
+  boxes from missing Unicode glyphs) and `SFG signal (a.u.)`.
+- **UI trim** — removed the redundant Curve-fit caption, the header meta
+  block, and dropped `.ngs` from the footer tagline.
+
+### Fixed
+- Curve-fit toggle knob misalignment (real span instead of `::before`).
+
 ## [1.1.0] — 2026-06-17
 
 ### Added
