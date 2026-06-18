@@ -72,10 +72,6 @@
     background:var(--card);border:1px solid var(--rule);border-radius:4px;
     box-shadow:var(--shadow);padding:30px 32px 34px;position:relative;
   }
-  .card::before{
-    content:"";position:absolute;left:24px;right:24px;top:0;height:2px;
-    background:linear-gradient(90deg,var(--accent) 0 38%,transparent 38% 62%,var(--accent-2) 62%);
-  }
   .section-title{
     display:flex;align-items:baseline;gap:12px;margin:0 0 4px;
     font-family:"Fraunces",serif;font-weight:600;font-size:19px;letter-spacing:-.2px;
@@ -221,7 +217,7 @@
   </header>
 
   <p class="lede rise d2">
-    Reads <em>.ngs</em> / <em>.txt</em> spectra. One click: background subtraction, reference normalisation, and scatter-with-fit figures.
+    Reads <em>.txt</em> / <em>.ngs</em> spectra. One click: background subtraction, reference normalisation, and scatter-with-fit figures.
   </p>
 
   <section class="card rise d3">
@@ -252,7 +248,7 @@
     <div class="field">
       <label>Curve fit</label>
       <div class="ctrl">
-        <label class="switch"><input type="checkbox" id="fit" checked /><span class="track"></span><span class="knob"></span></label>
+        <label class="switch"><input type="checkbox" id="fit" /><span class="track"></span><span class="knob"></span></label>
       </div>
     </div>
 
@@ -331,6 +327,9 @@ function getRanges(){
   }
   return out;  // may be empty -> only the full-range figure is produced
 }
+
+/* default wavenumber window */
+rangesEl.appendChild(rangeRow(3000,3750));
 
 /* add-range button */
 {
