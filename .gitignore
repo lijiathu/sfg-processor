@@ -45,3 +45,6 @@ data/
 processed_SFG.xlsx
 *_normalized*.png
 *_denoised.png
+
+# Local-only update guide (not for the public repo)
+更新指南.md
