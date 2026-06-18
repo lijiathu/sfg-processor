@@ -95,6 +95,12 @@
   input:focus,select:focus{outline:none;border-color:var(--accent);
     box-shadow:0 0 0 3px rgba(31,58,77,.10)}
   input.path{flex:1}
+  .switch{position:relative;display:inline-block;width:40px;height:22px;flex:0 0 auto;cursor:pointer}
+  .switch input{opacity:0;width:0;height:0;position:absolute}
+  .switch .track{position:absolute;inset:0;background:var(--rule-2);border-radius:22px;transition:background .2s}
+  .switch .track::before{content:"";position:absolute;left:3px;top:3px;width:16px;height:16px;background:#fff;border-radius:50%;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+  .switch input:checked + .track{background:var(--accent)}
+  .switch input:checked + .track::before{transform:translateX(18px)}
   .btn-tiny{
     font-family:"Hanken Grotesk",sans-serif;font-size:12px;font-weight:600;
     letter-spacing:.06em;text-transform:uppercase;cursor:pointer;
@@ -247,6 +253,14 @@
       </div>
     </div>
 
+    <div class="field">
+      <label>Curve fit</label>
+      <div class="ctrl">
+        <label class="switch"><input type="checkbox" id="fit" checked /><span class="track"></span></label>
+        <span class="unit">show a smooth fit over the scatter points</span>
+      </div>
+    </div>
+
     <h2 class="section-title" style="margin-top:28px"><span class="num">02 / RANGE</span> Wavenumber Windows</h2>
     <p class="section-sub">A full-range figure is always produced. Click "+ Add window" to define each zoomed range you want.</p>
     <div id="ranges"></div>
@@ -371,7 +385,7 @@ run.onclick = async ()=>{
   run.disabled=true; barfill.style.width="0%"; pct.textContent="0%";
   statustext.textContent="Starting…";
   await fetch("/api/process",{method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({folder:f, ref:ref.value, vis:parseFloat(vis.value)||1030, ranges})});
+    body:JSON.stringify({folder:f, ref:ref.value, vis:parseFloat(vis.value)||1030, ranges, fit:$("#fit").checked})});
   pollTimer = setInterval(checkStatus, 350);
 };
 

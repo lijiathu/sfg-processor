@@ -205,13 +205,13 @@ def _smooth_fit(x, y):
     return x, y, yf
 
 
-def _plot_nature(norm_df, sample, ref_sample, save_path, xlim=None):
-    """Nature-style scatter + smooth-fit spectrum.
+def _plot_nature(norm_df, sample, ref_sample, save_path, xlim=None, fit=True):
+    """Nature-style spectrum: scatter points, optionally with a smooth fit.
 
     If xlim is None the full finite range is plotted (titled "full range");
-    otherwise the given (lo, hi) window is plotted. Y-axis auto-scales to the
-    fit curve (so a single noise spike cannot squash the figure). No plot is
-    produced if fewer than ~7 finite points are available.
+    otherwise the given (lo, hi) window is plotted. The Y-axis starts at 0 and
+    is scaled so every data point is visible. No plot is produced if fewer
+    than ~7 finite points are available.
     """
     x = norm_df["IR_wavenumber_cm-1"].values
     y = norm_df["normalized_sum"].values
@@ -227,10 +227,10 @@ def _plot_nature(norm_df, sample, ref_sample, save_path, xlim=None):
     if len(xs) < 7:
         return
 
-    # y-axis starts from 0; upper bound from the smooth fit with a little air
-    y_hi = float(np.nanmax(yf))
+    # y-axis starts from 0; upper bound from the raw data so every point shows
+    y_top = float(np.nanmax(ys))
+    y_hi = y_top + (y_top * 0.06 if y_top > 0 else 1.0)
     y_lo = 0.0
-    y_hi = y_hi + (y_hi * 0.08 if y_hi > 0 else 1.0)
 
     if xlim is None:
         xlim = (float(xs.min()), float(xs.max()))
@@ -241,7 +241,8 @@ def _plot_nature(norm_df, sample, ref_sample, save_path, xlim=None):
     fig, ax = plt.subplots(figsize=(5.4, 3.6))
     ax.scatter(xs, ys, s=11, c="#c9ced6", edgecolors="none", alpha=0.85,
                zorder=2, label="data")
-    ax.plot(xs, yf, color="#1b3a4b", linewidth=1.7, zorder=3, label="fit")
+    if fit:
+        ax.plot(xs, yf, color="#1b3a4b", linewidth=1.7, zorder=3, label="fit")
     ax.set_xlim(xlim)
     ax.set_ylim(y_lo, y_hi)
     ax.set_xlabel(r"Wavenumber (cm$^{-1}$)")
@@ -249,7 +250,8 @@ def _plot_nature(norm_df, sample, ref_sample, save_path, xlim=None):
     ax.set_title(f"{sample} / {ref_sample}   ({title_range})",
                  loc="left", pad=8)
     ax.minorticks_on()
-    ax.legend(loc="upper right", handletextpad=0.4, borderaxespad=0.4)
+    if fit:
+        ax.legend(loc="upper right", handletextpad=0.4, borderaxespad=0.4)
     fig.tight_layout()
     fig.savefig(save_path, dpi=300)
     plt.close(fig)
@@ -286,7 +288,7 @@ def _plot_denoised(df, sample, save_path):
 
 
 def process_experiment(folder_path, ref_sample_name, lambda_vis=1030.0,
-                       x_ranges=None, progress_callback=None):
+                       x_ranges=None, progress_callback=None, fit=True):
     """
     Main processing: scan, denoise, normalize, output Excel and plots.
 
@@ -398,13 +400,14 @@ def process_experiment(folder_path, ref_sample_name, lambda_vis=1030.0,
         norm_df = sample_sheets[norm_key]
         # full-range normalized figure (always)
         _plot_nature(norm_df, sample, ref_sample_name,
-                     os.path.join(folder_path, f"{sample}_normalized_full.png"))
+                     os.path.join(folder_path, f"{sample}_normalized_full.png"),
+                     fit=fit)
         # one zoomed figure per selected range
         for x_min, x_max in x_ranges:
             _plot_nature(norm_df, sample, ref_sample_name,
                          os.path.join(folder_path,
                                       f"{sample}_normalized_{x_min}_{x_max}.png"),
-                         xlim=(x_min, x_max))
+                         xlim=(x_min, x_max), fit=fit)
     for sample in samples:
         if sample not in sample_sheets:
             continue

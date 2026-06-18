@@ -128,13 +128,14 @@ def api_process():
     vis = float(d.get("vis", 1030))
     ranges = d.get("ranges") or []
     ranges = [(int(a), int(b)) for a, b in ranges if a < b]
+    fit = bool(d.get("fit", True))
 
     def run():
         STATE.update(busy=True, done=False, error=None, result=None,
                      current=0, total=5, message="Starting…")
         try:
             out = process_experiment(folder, ref, lambda_vis=vis,
-                                     x_ranges=ranges,
+                                     x_ranges=ranges, fit=fit,
                                      progress_callback=_progress)
             imgs = sorted(glob.glob(os.path.join(folder, "*_normalized_*.png")))
             STATE.update(done=True, busy=False,
