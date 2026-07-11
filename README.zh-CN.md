@@ -18,7 +18,7 @@
 ---
 
 <p align="center">
-  <img src="docs/img/spectrum_example.png?v=2" width="560" alt="归一化 SFG 光谱示例：散点 + 平滑拟合">
+  <img src="docs/img/spectrum_example.png?v=3" width="560" alt="归一化 SFG 光谱示例：散点 + 平滑拟合">
 </p>
 
 <p align="center"><em>示例输出 —— 归一化水 O–H 拉伸 SFG 光谱（3100–3800 cm⁻¹），实验散点叠加 Savitzky–Golay 拟合，期刊发表风格。</em></p>
