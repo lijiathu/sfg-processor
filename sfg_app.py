@@ -132,6 +132,11 @@ def api_process():
     if mode not in ("line", "scatter", "fit"):
         mode = "fit"
     cosmic = bool(d.get("cosmic", True))
+    peaks_hint = [p for p in d.get("peaks", []) if p]
+    try:
+        peaks_hint = [float(p) for p in peaks_hint]
+    except (TypeError, ValueError):
+        peaks_hint = []
 
     def run():
         STATE.update(busy=True, done=False, error=None, result=None,
@@ -139,8 +144,25 @@ def api_process():
         try:
             out = process_experiment(folder, ref, lambda_vis=vis,
                                      x_ranges=ranges, mode=mode, cosmic=cosmic,
+                                     peaks_hint=peaks_hint or None,
                                      progress_callback=_progress)
             imgs = sorted(glob.glob(os.path.join(folder, "*_normalized_*.png")))
+            # cache normalised spectra so peak positions can be refined fast
+            import pandas as pd
+            cache = {}
+            try:
+                xl = pd.ExcelFile(out)
+                for s in xl.sheet_names:
+                    if s.endswith("_normalized"):
+                        df = xl.parse(s)
+                        cache[s[:-len("_normalized")]] = {
+                            "x": df["IR_wavenumber_cm-1"].tolist(),
+                            "y": [None if v != v else float(v)
+                                  for v in df["normalized_sum"].tolist()],
+                        }
+            except Exception:
+                pass
+            STATE.update(norm_cache=cache, folder=folder, ref=ref)
             STATE.update(done=True, busy=False,
                          result={"excel": out, "images": imgs, "folder": folder},
                          message="Done")
@@ -149,6 +171,47 @@ def api_process():
 
     threading.Thread(target=run, daemon=True).start()
     return jsonify({"started": True})
+
+
+@app.route("/api/refit", methods=["POST"])
+def api_refit():
+    """Fast re-fit of the cached normalised data with new peak centres/mode.
+
+    No re-scan — just re-fit and re-plot, so peak positions can be refined
+    iteratively until the result looks right.
+    """
+    cache = STATE.get("norm_cache")
+    if not cache:
+        return jsonify({"error": "Run Process first"}), 400
+    d = request.get_json(silent=True) or {}
+    try:
+        peaks_hint = [float(p) for p in d.get("peaks", []) if p] or None
+    except (TypeError, ValueError):
+        peaks_hint = None
+    mode = d.get("mode", "fit")
+    mode = mode if mode in ("line", "scatter", "fit") else "fit"
+    ranges = [(int(a), int(b)) for a, b in (d.get("ranges") or []) if a < b]
+    ref = d.get("ref", STATE.get("ref", "ref"))
+    folder = STATE.get("folder", "")
+    from sfg_processor import _set_nature_style, _plot_nature
+    import pandas as pd
+    try:
+        _set_nature_style()
+        for sample, xy in cache.items():
+            norm_df = pd.DataFrame({"IR_wavenumber_cm-1": xy["x"],
+                                    "normalized_sum": xy["y"]})
+            _plot_nature(norm_df, sample, ref,
+                         os.path.join(folder, f"{sample}_normalized_full.png"),
+                         mode=mode, peaks_hint=peaks_hint)
+            for x_min, x_max in ranges:
+                _plot_nature(norm_df, sample, ref,
+                             os.path.join(folder,
+                                          f"{sample}_normalized_{x_min}_{x_max}.png"),
+                             xlim=(x_min, x_max), mode=mode, peaks_hint=peaks_hint)
+        imgs = sorted(glob.glob(os.path.join(folder, "*_normalized_*.png")))
+        return jsonify({"images": imgs, "folder": folder})
+    except Exception as e:  # pragma: no cover
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/status")

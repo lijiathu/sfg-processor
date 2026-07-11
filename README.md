@@ -4,7 +4,7 @@
 
 **A desktop tool for batch Sum-Frequency Generation (SFG) vibrational spectroscopy data processing.**
 
-Read native `.ngs` instrument files or `.txt` exports · auto-detect reference & samples · background subtraction · reference normalisation · publication-style scatter-with-fit figures.
+Read `.txt` spectra exports · auto-detect reference & samples · background subtraction · reference normalisation · publication-style scatter-with-fit figures.
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.8+-blue.svg)
@@ -27,7 +27,7 @@ Read native `.ngs` instrument files or `.txt` exports · auto-detect reference &
 
 ## ✨ Features
 
-- **Reads `.ngs` directly** — parses the native `NGSNextGen` binary format, so you no longer need to export `.txt` files. If both exist, `.txt` takes precedence.
+- **Reads `.txt` spectra** — whitespace-separated two-column exports (wavelength, intensity).
 - **One-click batch processing** — point it at a single experiment folder. It recursively finds every sample, matches each `NoVis` background, and normalises all test samples against **one shared reference** (e.g. quartz). No more copying reference files around.
 - **Publication-grade figures** — scatter points + smooth fit curve, Helvetica typography, thin axes, no grid. Y-axis auto-scales to the fit, so a single noise spike can't squash the figure.
 - **Always-on full-range figure** — every run emits a full-range normalised plot, plus one zoomed plot for each wavenumber window you select.
@@ -80,7 +80,7 @@ python -c "from sfg_processor import process_experiment; process_experiment('exa
 
 ## 🗂 File-naming convention
 
-Files are parsed automatically as `{sample}_{wavenumber}_{flags}.txt` (or `.ngs`):
+Files are parsed automatically as `{sample}_{wavenumber}_{flags}.txt`:
 
 | File | Sample | Wavenumber | Note |
 |------|--------|------------|------|
@@ -105,7 +105,7 @@ Produces `dist/SFG_Processor.exe` (PyInstaller, single-file, `--windowed`).
 
 ```
 sfg-processor/
-├── sfg_processor.py     # core logic (pure, no GUI) — parsing, NGS reader, denoise, normalise, plotting
+├── sfg_processor.py     # core logic (pure, no GUI) — parsing, denoise, normalise, plotting, χ² fit
 ├── sfg_app.py           # Flask backend + native folder picker + job status
 ├── frontend/
 │   └── index.html       # self-contained interface (HTML/CSS/JS)
@@ -119,7 +119,7 @@ sfg-processor/
 ## 🔬 How it works
 
 ```
-.ngs / .txt  →  recursive scan + filename parse
+.txt  →  recursive scan + filename parse
             →  SFG wavelength  →  IR wavenumber (ν = 1e7·(1/λ_SFG − 1/λ_vis))
             →  subtract matching NoVis background
             →  sum denoised components per sample

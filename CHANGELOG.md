@@ -4,6 +4,23 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.4.0] — 2026-07-12
+
+### Added
+- **Physically-correct χ⁽²⁾ fit** — Scatter+Fit now fits
+  `I = |χ_NR·e^{iφ} + Σ A_q/(ω_q-ω-iΓ_q)|²` (complex χ summed then modulus
+  squared, preserving non-resonant interference), with multi-start guesses and
+  best-R² selection. Peak table (centre / FWHM / amplitude / area / error)
+  exported to Excel.
+- **Iterative peak refinement** — a "Re-fit" button re-fits the cached
+  normalised data with new peak centres instantly (no re-scan), so positions can
+  be tuned until the result looks right.
+- **Manual peak centres** — specify initial peak positions (e.g. 3200, 3400, 3650).
+
+### Removed
+- **`.ngs` support dropped** — the app now reads `.txt` exports only (UI, docs,
+  and core). The native binary reader is removed.
+
 ## [1.3.0] — 2026-07-11
 
 ### Added

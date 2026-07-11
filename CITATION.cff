@@ -4,7 +4,7 @@ title: "SFG Processor: a desktop tool for batch Sum-Frequency Generation spectro
 abstract: >-
   A desktop application (Flask + web UI, packaged as a standalone Windows
   executable) for batch-processing Sum-Frequency Generation (SFG) vibrational
-  spectra. It reads native instrument .ngs files and plain .txt exports,
+  spectra. It reads plain .txt exports,
   subtracts NoVis backgrounds, normalises test samples against a reference
   (e.g. quartz), and renders publication-style scatter-with-fit figures.
 authors:

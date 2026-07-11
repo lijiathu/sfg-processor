@@ -217,12 +217,12 @@
   </header>
 
   <p class="lede rise d2">
-    Reads <em>.txt</em> / <em>.ngs</em> spectra. One click: background subtraction, reference normalisation, and scatter-with-fit figures.
+    Reads <em>.txt</em> spectra. One click: background subtraction, reference normalisation, and scatter-with-fit figures.
   </p>
 
   <section class="card rise d3">
     <h2 class="section-title"><span class="num">01 / DATA</span> Experiment Folder</h2>
-    <p class="section-sub">Supports .txt / .ngs data formats; .txt is read preferentially when both exist.</p>
+    <p class="section-sub">Supports .txt data files (whitespace-separated two columns).</p>
 
     <div class="field">
       <label>Data Folder</label>
@@ -256,6 +256,13 @@
       </div>
     </div>
 
+    <div class="field" id="peaksfield" style="display:none">
+      <label>Peak centres</label>
+      <div class="ctrl">
+        <input id="peaks" type="text" style="max-width:480px" placeholder="e.g. 3200, 3400, 3700  (blank = auto-detect)" />
+      </div>
+    </div>
+
     <div class="field">
       <label>Cosmic rays</label>
       <div class="ctrl">
@@ -286,6 +293,7 @@
       <p class="hint">Normalised scatter-with-fit figures (click to enlarge) · Excel and denoised figures are in the same folder.</p>
       <div class="gallery" id="gallery"></div>
       <div class="result-actions">
+        <button class="btn-tiny" id="refit">Re-fit (new peak centres)</button>
         <button class="btn-tiny" id="openfolder">Open Output Folder</button>
       </div>
     </div>
@@ -390,10 +398,17 @@ run.onclick = async ()=>{
   results.style.display="none"; prog.style.display="block";
   run.disabled=true; barfill.style.width="0%"; pct.textContent="0%";
   statustext.textContent="Starting…";
+  const peaks=$("#peaks").value.split(",").map(s=>s.trim()).filter(Boolean);
   await fetch("/api/process",{method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({folder:f, ref:ref.value, vis:parseFloat(vis.value)||1030, ranges, mode:$("#mode").value, cosmic:$("#cosmic").checked})});
+    body:JSON.stringify({folder:f, ref:ref.value, vis:parseFloat(vis.value)||1030, ranges, mode:$("#mode").value, cosmic:$("#cosmic").checked, peaks})});
   pollTimer = setInterval(checkStatus, 350);
 };
+
+/* show peak-centres field only in fit mode */
+$("#mode").addEventListener("change", ()=>{
+  $("#peaksfield").style.display = $("#mode").value==="fit" ? "" : "none";
+});
+$("#peaksfield").style.display = $("#mode").value==="fit" ? "" : "none";
 
 function checkStatus(){
   fetch("/api/status").then(r=>r.json()).then(s=>{
@@ -422,6 +437,26 @@ function showResult(res){
   const dl = `/file?folder=${encodeURIComponent(res.folder)}&path=${encodeURIComponent(ex)}&download=1`;
   $("#openfolder").onclick = ()=>fetch("/api/open",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({folder:res.folder})});
 }
+
+/* iterative peak-centre refinement: re-fit the cached data, refresh gallery */
+$("#refit").onclick = async ()=>{
+  if(!res||!res.folder){ toast("Process first"); return; }
+  toast("Re-fitting…");
+  const ranges=getRanges();
+  const peaks=$("#peaks").value.split(",").map(s=>s.trim()).filter(Boolean);
+  const r=await fetch("/api/refit",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({folder:res.folder, ref:ref.value, mode:$("#mode").value, ranges, peaks})}).then(x=>x.json());
+  if(r.error){ toast(r.error,true); return; }
+  res.images=r.images; res.folder=r.folder;
+  results.style.display="block";
+  const cacheBust="?r="+Date.now();
+  gallery.innerHTML = r.images.map(p=>{
+    const name=p.split(/[\\/]/).pop().replace(/\.png$/,"");
+    const url=`/file?folder=${encodeURIComponent(r.folder)}&path=${encodeURIComponent(p)}${cacheBust}`;
+    return `<a class="thumb" href="${url}" target="_blank"><img loading="lazy" src="${url}"/><div class="cap">${name}</div></a>`;
+  }).join("");
+  toast("Re-fit done ✦");
+};
 
 /* thumbnail → modal */
 gallery.addEventListener("click",(e)=>{

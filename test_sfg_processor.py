@@ -1,9 +1,7 @@
 import pytest
 import numpy as np
-import struct
 from sfg_processor import (
-    parse_filename, wavelength_to_ir, scan_folder, read_sfg_data, get_sample_names,
-    read_ngs_v1
+    parse_filename, wavelength_to_ir, scan_folder, read_sfg_data, get_sample_names
 )
 
 
@@ -84,23 +82,14 @@ class TestWavelengthToIr:
 
 
 class TestScanFolder:
-    def test_finds_txt_and_ngs_files(self, tmp_path):
+    def test_finds_txt_files(self, tmp_path):
         (tmp_path / "quartz_3200_Purge.txt").write_text("1.0 100\n2.0 200\n")
         (tmp_path / "quartz_3200_Purge_NoVis.txt").write_text("1.0 50\n2.0 100\n")
-        (tmp_path / "sample_3400_Purge.ngs").write_text("binary")
         result = scan_folder(str(tmp_path))
         stems = [r["stem"] for r in result]
         assert "quartz_3200_Purge" in stems
         assert "quartz_3200_Purge_NoVis" in stems
-        assert "sample_3400_Purge" in stems  # .ngs is also scanned
-        assert len(result) == 3
-
-    def test_txt_preferred_over_ngs(self, tmp_path):
-        (tmp_path / "sample_3200_Purge.txt").write_text("1.0 100\n")
-        (tmp_path / "sample_3200_Purge.ngs").write_text("binary")
-        result = scan_folder(str(tmp_path))
-        assert len(result) == 1
-        assert result[0]["path"].endswith(".txt")  # .txt wins
+        assert len(result) == 2
 
     def test_recursive_scan(self, tmp_path):
         subdir = tmp_path / "sub"
@@ -149,60 +138,5 @@ class TestReadSfgData:
         assert len(df) == 2
 
 
-def _make_ngs_v1(n, wl_start, wl_step, intens):
-    """Build a minimal valid NGSNextGen v1 byte blob matching the real layout."""
-    wl = wl_start - wl_step * np.arange(n, dtype="<f4")
-    intens = np.asarray(intens, dtype="<f4")
-    blob = b"NGSNextGen"               # magic (10 bytes)
-    blob += struct.pack("<I", 1)        # version
-    blob += struct.pack("<I", 1)        # field
-    blob += bytes([len("DataMatrix")]) + b"DataMatrix"
-    blob += bytes([len("Spectrum")]) + b"Spectrum"
-    blob += bytes([len("Data_1")]) + b"Data_1"
-    blob += b"\x00" * 11               # padding to align with real files
-    blob += b"\xff\xff\xff\xff"         # anchor
-    blob += struct.pack("<I", n)        # count
-    blob += b"\x01\x00"                 # field
-    blob += struct.pack("<I", n)        # count again
-    blob += b"\x00\x19"                 # field
-    blob += intens.tobytes()            # intensity array
-    blob += b"\x02\x00\x06Spectr\x06Intens\x02\x00\x02nm\x03cnt"  # metadata tags
-    blob += b"\x02\x00\x00\x00\x02\x00\x00\x00\x00\x00"
-    blob += wl.tobytes()                # wavelength array
-    return blob
-
-
-class TestReadNgsV1:
-    def test_reads_synthetic_ngs(self, tmp_path):
-        n, intens = 50, np.arange(50, dtype=float) * 10 + 1000
-        blob = _make_ngs_v1(n, wl_start=791.0, wl_step=0.03, intens=intens)
-        fpath = tmp_path / "sample_3200_Purge.ngs"
-        fpath.write_bytes(blob)
-        wl, inten = read_ngs_v1(str(fpath))
-        assert len(wl) == 50
-        assert len(inten) == 50
-        assert np.allclose(inten, intens)
-        assert np.allclose(wl, 791.0 - 0.03 * np.arange(50))
-
-    def test_rejects_bad_magic(self, tmp_path):
-        fpath = tmp_path / "bad.ngs"
-        fpath.write_bytes(b"NOTNGS\x00\x00\x00\x00" + struct.pack("<I", 1))
-        with pytest.raises(ValueError, match="NGSNextGen"):
-            read_ngs_v1(str(fpath))
-
-    def test_rejects_unsupported_version(self, tmp_path):
-        blob = b"NGSNextGen" + struct.pack("<I", 3) + b"\x00" * 40
-        fpath = tmp_path / "old.ngs"
-        fpath.write_bytes(blob)
-        with pytest.raises(ValueError, match="version"):
-            read_ngs_v1(str(fpath))
-
-    def test_read_sfg_data_dispatches_ngs(self, tmp_path):
-        n, intens = 30, np.full(30, 500.0)
-        blob = _make_ngs_v1(n, 791.0, 0.03, intens)
-        fpath = tmp_path / "q_3200.ngs"
-        fpath.write_bytes(blob)
-        df = read_sfg_data(str(fpath))
-        assert len(df) == 30
-        assert "SFG_nm" in df.columns
-        assert "Intensity" in df.columns
+def _placeholder_end_of_file():
+    pass

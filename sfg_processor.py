@@ -1,6 +1,5 @@
 import os
 import re
-import struct
 import warnings
 from pathlib import Path
 
@@ -49,24 +48,17 @@ def wavelength_to_ir(sfg_nm, lambda_vis_nm=1030.0):
 
 
 def scan_folder(folder_path):
-    """Recursively scan folder for .txt/.ngs files, return metadata list.
-
-    Preference: if both .txt and .ngs exist for the same stem, only the .txt
-    is kept (.ngs is used automatically as a fallback when .txt is absent).
-    """
-    by_stem = {}
+    """Recursively scan folder for .txt files, return metadata list."""
+    all_txt = []
     for root, dirs, files in os.walk(folder_path):
         for f in files:
-            if f.endswith(".txt") or f.endswith(".ngs"):
-                stem = Path(f).stem
-                fpath = os.path.join(root, f)
-                # prefer .txt over .ngs
-                if f.endswith(".txt") or stem not in by_stem:
-                    by_stem[stem] = fpath
-    if not by_stem:
-        raise FileNotFoundError("No .txt or .ngs files found; check the path.")
+            if f.endswith(".txt"):
+                all_txt.append(os.path.join(root, f))
+    if not all_txt:
+        raise FileNotFoundError("No .txt files found; check the path.")
     meta_list = []
-    for stem, fpath in by_stem.items():
+    for fpath in all_txt:
+        stem = Path(fpath).stem
         try:
             sample, wave, flags, is_bg = parse_filename(stem)
         except ValueError as e:
@@ -84,54 +76,11 @@ def get_sample_names(meta_list):
     return sorted({m["sample"] for m in meta_list})
 
 
-def read_ngs_v1(path):
-    """Read an NGSNextGen version-1 binary file.
-
-    Returns (wavelength_nm, intensity) as float arrays.
-    Raises ValueError if the file is not NGSNextGen v1 or arrays can't be located.
-    """
-    with open(path, "rb") as f:
-        data = f.read()
-    if data[:10] != b"NGSNextGen":
-        raise ValueError("Not an NGSNextGen file")
-    ver = struct.unpack("<I", data[10:14])[0]
-    if ver != 1:
-        raise ValueError(f"Unsupported NGS version {ver} (only v1 supported)")
-    # Anchor: 0xFFFFFFFF precedes the data count
-    anchor = data.find(b"\xff\xff\xff\xff")
-    if anchor < 0:
-        raise ValueError("Data anchor not found")
-    n = struct.unpack("<I", data[anchor + 4:anchor + 8])[0]
-    # intensity array starts at anchor + 4(count) +4 +2 +4(count) +2 = anchor+16
-    i_start = anchor + 16
-    if i_start + n * 4 > len(data):
-        raise ValueError("Insufficient data length")
-    intens = np.frombuffer(data[i_start:i_start + n * 4], dtype="<f4").astype(float)
-    # wavelength array: scan byte-by-byte after intens end for a float32 array
-    # that is finite, in the 500-900 nm range, and monotonic
-    wl = None
-    pos = i_start + n * 4
-    while pos + n * 4 <= len(data):
-        a = np.frombuffer(data[pos:pos + n * 4], dtype="<f4")
-        if (np.all(np.isfinite(a)) and a.min() > 500 and a.max() < 900
-                and (np.all(np.diff(a) > 0) or np.all(np.diff(a) < 0))):
-            wl = a.astype(float)
-            break
-        pos += 1
-    if wl is None:
-        raise ValueError("Wavelength array not found")
-    return wl, intens
-
-
 def read_sfg_data(fpath):
-    """Read a single SFG data file (.txt or .ngs), return DataFrame.
+    """Read a single SFG .txt data file, return DataFrame (SFG_nm, Intensity).
 
-    Columns: SFG_nm (wavelength), Intensity.
-    .txt is read as whitespace-separated two columns; .ngs uses read_ngs_v1.
+    Two whitespace-separated columns (wavelength, intensity).
     """
-    if fpath.lower().endswith(".ngs"):
-        wl, intens = read_ngs_v1(fpath)
-        return pd.DataFrame({"SFG_nm": wl, "Intensity": intens})
     df = pd.read_csv(fpath, sep=r"\s+|\t", header=None, engine="python",
                      names=["SFG_nm", "Intensity"])
     df["SFG_nm"] = pd.to_numeric(df["SFG_nm"], errors="coerce")
@@ -205,6 +154,117 @@ def _smooth_fit(x, y):
     return x, y, yf
 
 
+def _multi_peak_fit(x, y, max_peaks=6, peaks_hint=None):
+    """Physically-correct SFG fit: I(ω) = |χ_NR·e^{iφ} + Σ A_q/(ω_q-ω-iΓ_q)|².
+
+    Builds the complex χ⁽²⁾ (non-resonant with phase + resonant complex
+    Lorentzians), takes the modulus squared — preserving interference (the
+    physically correct target, vs. naively adding real Lorentzians to the
+    intensity). Multi-start initial guesses; keeps the best-R² result.
+    ``peaks_hint`` (list of wavenumbers) fixes the initial centres (manual).
+    Returns dict {yfit, comps, table, r2, chi_nr, phi} or None on failure.
+    """
+    from scipy.signal import find_peaks, savgol_filter
+    from scipy.optimize import curve_fit
+    x = np.asarray(x, float); y = np.asarray(y, float)
+    n = len(x)
+    fin = np.isfinite(x) & np.isfinite(y)
+    if fin.sum() < 12:
+        return None
+    x, y = x[fin], y[fin]
+    order = np.argsort(x); x, y = x[order], y[order]
+    xlo, xhi = float(x[0]), float(x[-1])
+    span = xhi - xlo or 1.0
+    dx = np.median(np.diff(x)) or (span / n)
+
+    # --- initial peak centres (manual hint or auto-detect) ---
+    win = int(np.clip(n // 6 | 1, 5, 101))
+    if win >= n:
+        win = n - 1 if n % 2 == 0 else n - 2
+    try:
+        ys = savgol_filter(y, win, 3) if win >= 5 else y
+    except Exception:
+        ys = y
+    base = float(np.nanmedian(ys)); amp = float(np.nanmax(ys) - base) or 1.0
+    if peaks_hint:
+        idx = np.clip(np.searchsorted(x, np.array(peaks_hint, float)), 1, n - 2)
+        centers = [float(x[i]) for i in sorted(set(idx))]
+    else:
+        pk, _ = find_peaks(ys - base, prominence=amp * 0.06,
+                           distance=max(3, int(15 / dx)) if dx else 5)
+        if len(pk) > max_peaks:
+            pk = pk[np.argsort((ys[pk] - base))[-max_peaks:]]
+            pk.sort()
+        centers = [float(x[i]) for i in pk]
+    if not centers:
+        return None
+    n_modes = len(centers)
+
+    # --- model: I = |χ_NR·e^{iφ} + Σ A_q/(ω_q-ω-iΓ_q)|² ---
+    def sfg_model(w, chi_nr, phi, *params):
+        chi = np.full_like(w, chi_nr * np.exp(1j * phi), dtype=complex)
+        for q in range(len(params) // 3):
+            A, wq, gq = params[3 * q], params[3 * q + 1], params[3 * q + 2]
+            chi = chi + A / (wq - w - 1j * gq)
+        return np.abs(chi) ** 2
+
+    def make_fit_func(m):
+        return lambda w, *p: sfg_model(w, p[0], p[1], *p[2:])
+
+    chi_nr0 = np.sqrt(max(base, 1e-6))
+    lb = [0.0, -np.pi]; ub = [np.inf, np.pi]
+    for _ in centers:
+        lb += [-np.inf, xlo, 1e-3]; ub += [np.inf, xhi, 300.0]
+
+    # --- multi-start guesses, keep best R² ---
+    guess_sets = []
+    for fac in (0.8, 1.2, 0.5):
+        g = [chi_nr0, 0.0]
+        for c in centers:
+            g += [fac * chi_nr0, c, 50.0]
+        guess_sets.append(g)
+    for ph in (1.0, -1.5, 2.5):
+        g = [chi_nr0, ph]
+        for c in centers:
+            g += [1.0 * chi_nr0, c, 45.0]
+        guess_sets.append(g)
+
+    f = make_fit_func(n_modes)
+    ss_tot = float(np.sum((y - np.mean(y)) ** 2)) or 1.0
+    best = None
+    for g in guess_sets:
+        try:
+            popt, pcov = curve_fit(f, x, y, p0=g, bounds=(lb, ub), maxfev=200000)
+        except Exception:
+            continue
+        yfit = f(x, *popt)
+        r2 = 1.0 - float(np.sum((y - yfit) ** 2)) / ss_tot
+        if best is None or r2 > best["r2"]:
+            best = {"popt": popt, "pcov": pcov, "yfit": yfit, "r2": r2}
+    if best is None:
+        return None
+
+    popt = best["popt"]; perr = np.sqrt(np.diag(best["pcov"]))
+    chi_nr = float(popt[0]); phi = float(popt[1])
+    comps = []; table = []
+    for q in range(n_modes):
+        A, wq, gq = popt[2 + 3 * q], popt[3 + 3 * q], abs(popt[4 + 3 * q])
+        # clean per-mode Lorentzian intensity |A/(ωq-ω-iΓ)|² = A²/((ωq-ω)²+Γ²)
+        comp = (A * A) / ((wq - x) ** 2 + gq * gq)
+        comps.append((float(wq), comp))
+        table.append({
+            "center_cm-1": round(float(wq), 1),
+            "FWHM_cm-1": round(2 * gq, 1),
+            "A": round(float(A), 5),
+            "gamma_cm-1": round(float(gq), 1),
+            "area": round(float(abs(A) * np.pi * gq), 5),
+            "err_center": round(float(perr[3 + 3 * q]), 1),
+        })
+    table.sort(key=lambda r: r["center_cm-1"])
+    return {"yfit": best["yfit"], "comps": comps, "table": table,
+            "r2": round(best["r2"], 4), "chi_nr": chi_nr, "phi": phi}
+
+
 def remove_cosmics(y, win=7, thresh=6.0):
     """Detect and replace sharp cosmic-ray spikes.
 
@@ -234,14 +294,44 @@ def remove_cosmics(y, win=7, thresh=6.0):
     return out
 
 
-def _plot_nature(norm_df, sample, ref_sample, save_path, xlim=None, mode="fit"):
+def smooth_curve(y, frac=0.05):
+    """Light Savitzky–Golay smoothing of a (possibly NaN-bearing) curve.
+
+    Smooths only finite segments; NaNs left untouched so gaps are preserved.
+    Window ≈ frac of finite-point count (odd, clamped). Reduces point-to-point
+    noise without flattening real peaks.
+    """
+    from scipy.signal import savgol_filter
+    y = np.asarray(y, dtype=float)
+    finite = np.isfinite(y)
+    nfin = int(finite.sum())
+    if nfin < 9:
+        return y
+    idx = np.where(finite)[0]
+    yy = y[idx]
+    win = int(np.clip(round(nfin * frac) | 1, 5, 101))
+    if win >= nfin:
+        win = nfin - 1 if nfin % 2 == 0 else nfin - 2
+    if win < 5:
+        return y
+    poly = 3 if win > 4 else 1
+    try:
+        ys = savgol_filter(yy, win, poly)
+    except Exception:
+        return y
+    out = y.copy()
+    out[idx] = ys
+    return out
+
+
+def _plot_nature(norm_df, sample, ref_sample, save_path, xlim=None, mode="fit",
+                 peaks_hint=None):
     """Nature-style spectrum.
 
     mode: 'line' (line only), 'scatter' (points only), 'fit' (points + fit).
-    If xlim is None the full finite range is plotted (titled "full range");
-    otherwise the given (lo, hi) window is plotted. The Y-axis starts at 0 and
-    is scaled so every data point is visible. No plot is produced if fewer
-    than ~7 finite points are available.
+    In 'fit' mode a multi-Lorentzian fit is attempted; peak centres are
+    annotated and a peak table is returned for export (None otherwise).
+    Returns the peak table (list of dicts) or None.
     """
     x = norm_df["IR_wavenumber_cm-1"].values
     y = norm_df["normalized_sum"].values
@@ -250,12 +340,16 @@ def _plot_nature(norm_df, sample, ref_sample, save_path, xlim=None, mode="fit"):
     else:
         sel = np.isfinite(x) & np.isfinite(y)
     if sel.sum() < 7:
-        return
+        return None
     x, y = x[sel], y[sel]
+    o = np.argsort(x); x, y = x[o], y[o]
 
     xs, ys, yf = _smooth_fit(x, y)
     if len(xs) < 7:
-        return
+        return None
+
+    peak_table = None
+    fit_res = _multi_peak_fit(x, y, peaks_hint=peaks_hint) if mode == "fit" else None
 
     # y-axis starts from 0; upper bound from the raw data so every point shows
     y_top = float(np.nanmax(ys))
@@ -272,10 +366,21 @@ def _plot_nature(norm_df, sample, ref_sample, save_path, xlim=None, mode="fit"):
     if mode == "line":
         ax.plot(x, y, color="#1b3a4b", linewidth=1.6, zorder=3)
     else:
-        ax.scatter(xs, ys, s=11, c="#c9ced6", edgecolors="none", alpha=0.85,
+        ax.scatter(x, y, s=11, c="#c9ced6", edgecolors="none", alpha=0.85,
                    zorder=2, label="data")
         if mode == "fit":
-            ax.plot(xs, yf, color="#1b3a4b", linewidth=1.7, zorder=3, label="fit")
+            if fit_res is not None:
+                peak_table = fit_res["table"]
+                ax.plot(x, fit_res["yfit"], color="#1b3a4b", linewidth=1.8,
+                        zorder=4, label="fit")
+                # label each peak centre on the fit curve (single line kept)
+                for c, comp in fit_res["comps"]:
+                    yc = float(np.nanmax(comp)) if np.nanmax(comp) > 0 else y_hi * 0.92
+                    ax.annotate(f"{c:.0f}", (c, yc), ha="center", fontsize=8,
+                                color="#1b3a4b")
+            else:
+                ax.plot(xs, yf, color="#1b3a4b", linewidth=1.7, zorder=3,
+                        label="smooth")
     ax.set_xlim(xlim)
     ax.set_ylim(y_lo, y_hi)
     ax.set_xlabel(r"Wavenumber (cm$^{-1}$)")
@@ -288,6 +393,7 @@ def _plot_nature(norm_df, sample, ref_sample, save_path, xlim=None, mode="fit"):
     fig.tight_layout()
     fig.savefig(save_path, dpi=300)
     plt.close(fig)
+    return peak_table
 
 
 def _plot_denoised(df, sample, save_path):
@@ -322,7 +428,7 @@ def _plot_denoised(df, sample, save_path):
 
 def process_experiment(folder_path, ref_sample_name, lambda_vis=1030.0,
                        x_ranges=None, progress_callback=None, mode="fit",
-                       cosmic=True):
+                       cosmic=True, peaks_hint=None):
     """
     Main processing: scan, denoise, normalize, output Excel and plots.
 
@@ -430,6 +536,7 @@ def process_experiment(folder_path, ref_sample_name, lambda_vis=1030.0,
     if progress_callback:
         progress_callback(4, 5, "Plotting...")
     _set_nature_style()
+    peak_sheets = {}  # sample -> DataFrame of peak parameters
     for sample in test_samples:
         norm_key = sample + "_normalized"
         if norm_key not in sample_sheets:
@@ -438,18 +545,28 @@ def process_experiment(folder_path, ref_sample_name, lambda_vis=1030.0,
         # full-range normalized figure (always)
         _plot_nature(norm_df, sample, ref_sample_name,
                      os.path.join(folder_path, f"{sample}_normalized_full.png"),
-                     mode=mode)
-        # one zoomed figure per selected range
+                     mode=mode, peaks_hint=peaks_hint)
+        # one zoomed figure per selected range (capture peak table)
         for x_min, x_max in x_ranges:
-            _plot_nature(norm_df, sample, ref_sample_name,
-                         os.path.join(folder_path,
-                                      f"{sample}_normalized_{x_min}_{x_max}.png"),
-                         xlim=(x_min, x_max), mode=mode)
+            tbl = _plot_nature(norm_df, sample, ref_sample_name,
+                               os.path.join(folder_path,
+                                            f"{sample}_normalized_{x_min}_{x_max}.png"),
+                               xlim=(x_min, x_max), mode=mode, peaks_hint=peaks_hint)
+            if tbl and sample not in peak_sheets:
+                rows = [{"range": f"{x_min}-{x_max}", **r} for r in tbl]
+                peak_sheets[sample] = pd.DataFrame(rows)
     for sample in samples:
         if sample not in sample_sheets:
             continue
         _plot_denoised(sample_sheets[sample], sample,
                        os.path.join(folder_path, f"{sample}_denoised.png"))
+
+    # 7. Append peak-fit tables to the workbook (if multi-peak fit ran)
+    if peak_sheets:
+        with pd.ExcelWriter(output_excel, engine="openpyxl",
+                            mode="a", if_sheet_exists="replace") as writer:
+            for sample, df in peak_sheets.items():
+                df.to_excel(writer, sheet_name=(sample + "_peaks")[:31], index=False)
 
     if progress_callback:
         progress_callback(5, 5, "Done!")
