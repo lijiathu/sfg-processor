@@ -205,9 +205,39 @@ def _smooth_fit(x, y):
     return x, y, yf
 
 
-def _plot_nature(norm_df, sample, ref_sample, save_path, xlim=None, fit=True):
-    """Nature-style spectrum: scatter points, optionally with a smooth fit.
+def remove_cosmics(y, win=7, thresh=6.0):
+    """Detect and replace sharp cosmic-ray spikes.
 
+    Uses a moving-median filter: points whose deviation from the local median
+    exceeds ``thresh`` robust sigma (MAD-based) are treated as cosmic spikes and
+    replaced by the median. NaNs are preserved (only finite points are cleaned).
+    """
+    y = np.asarray(y, dtype=float)
+    finite = np.isfinite(y)
+    if finite.sum() < win * 2:
+        return y
+    try:
+        from scipy.ndimage import median_filter
+    except Exception:
+        return y
+    filled = np.where(finite, y, 0.0)
+    med = median_filter(filled, size=win, mode="nearest")
+    resid = np.where(finite, y - med, 0.0)
+    rfin = resid[finite]
+    mad = np.median(np.abs(rfin - np.median(rfin)))
+    sigma = 1.4826 * mad if mad > 0 else float(np.std(rfin)) or 0.0
+    if sigma <= 0:
+        return y
+    spike = finite & (np.abs(resid) > thresh * sigma)
+    out = y.copy()
+    out[spike] = med[spike]
+    return out
+
+
+def _plot_nature(norm_df, sample, ref_sample, save_path, xlim=None, mode="fit"):
+    """Nature-style spectrum.
+
+    mode: 'line' (line only), 'scatter' (points only), 'fit' (points + fit).
     If xlim is None the full finite range is plotted (titled "full range");
     otherwise the given (lo, hi) window is plotted. The Y-axis starts at 0 and
     is scaled so every data point is visible. No plot is produced if fewer
@@ -239,10 +269,13 @@ def _plot_nature(norm_df, sample, ref_sample, save_path, xlim=None, fit=True):
         title_range = f"{xlim[0]}-{xlim[1]} cm$^{{-1}}$"
 
     fig, ax = plt.subplots(figsize=(5.4, 3.6))
-    ax.scatter(xs, ys, s=11, c="#c9ced6", edgecolors="none", alpha=0.85,
-               zorder=2, label="data")
-    if fit:
-        ax.plot(xs, yf, color="#1b3a4b", linewidth=1.7, zorder=3, label="fit")
+    if mode == "line":
+        ax.plot(x, y, color="#1b3a4b", linewidth=1.6, zorder=3)
+    else:
+        ax.scatter(xs, ys, s=11, c="#c9ced6", edgecolors="none", alpha=0.85,
+                   zorder=2, label="data")
+        if mode == "fit":
+            ax.plot(xs, yf, color="#1b3a4b", linewidth=1.7, zorder=3, label="fit")
     ax.set_xlim(xlim)
     ax.set_ylim(y_lo, y_hi)
     ax.set_xlabel(r"Wavenumber (cm$^{-1}$)")
@@ -250,7 +283,7 @@ def _plot_nature(norm_df, sample, ref_sample, save_path, xlim=None, fit=True):
     ax.set_title(f"{sample} / {ref_sample}   ({title_range})",
                  loc="left", pad=8)
     ax.minorticks_on()
-    if fit:
+    if mode == "fit":
         ax.legend(loc="upper right", handletextpad=0.4, borderaxespad=0.4)
     fig.tight_layout()
     fig.savefig(save_path, dpi=300)
@@ -288,7 +321,8 @@ def _plot_denoised(df, sample, save_path):
 
 
 def process_experiment(folder_path, ref_sample_name, lambda_vis=1030.0,
-                       x_ranges=None, progress_callback=None, fit=True):
+                       x_ranges=None, progress_callback=None, mode="fit",
+                       cosmic=True):
     """
     Main processing: scan, denoise, normalize, output Excel and plots.
 
@@ -374,6 +408,9 @@ def process_experiment(folder_path, ref_sample_name, lambda_vis=1030.0,
         norm_df["IR_wavenumber_cm-1"] = df_w["IR_wavenumber_cm-1"]
         with np.errstate(divide="ignore", invalid="ignore"):
             norm_df["normalized_sum"] = df_w["sum"] / df_ref["sum"]
+        # optional cosmic-ray spike removal on the normalised spectrum
+        if cosmic:
+            norm_df["normalized_sum"] = remove_cosmics(norm_df["normalized_sum"].values)
         sample_sheets[sample + "_normalized"] = norm_df
 
     # 5. Write Excel
@@ -401,13 +438,13 @@ def process_experiment(folder_path, ref_sample_name, lambda_vis=1030.0,
         # full-range normalized figure (always)
         _plot_nature(norm_df, sample, ref_sample_name,
                      os.path.join(folder_path, f"{sample}_normalized_full.png"),
-                     fit=fit)
+                     mode=mode)
         # one zoomed figure per selected range
         for x_min, x_max in x_ranges:
             _plot_nature(norm_df, sample, ref_sample_name,
                          os.path.join(folder_path,
                                       f"{sample}_normalized_{x_min}_{x_max}.png"),
-                         xlim=(x_min, x_max), fit=fit)
+                         xlim=(x_min, x_max), mode=mode)
     for sample in samples:
         if sample not in sample_sheets:
             continue

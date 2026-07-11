@@ -246,9 +246,21 @@
     </div>
 
     <div class="field">
-      <label>Curve fit</label>
+      <label>Plot style</label>
       <div class="ctrl">
-        <label class="switch"><input type="checkbox" id="fit" /><span class="track"></span><span class="knob"></span></label>
+        <select id="mode" style="max-width:180px">
+          <option value="line">Line</option>
+          <option value="scatter">Scatter</option>
+          <option value="fit" selected>Scatter + Fit</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Cosmic rays</label>
+      <div class="ctrl">
+        <label class="switch"><input type="checkbox" id="cosmic" checked /><span class="track"></span><span class="knob"></span></label>
+        <span class="unit">remove spike artefacts</span>
       </div>
     </div>
 
@@ -379,7 +391,7 @@ run.onclick = async ()=>{
   run.disabled=true; barfill.style.width="0%"; pct.textContent="0%";
   statustext.textContent="Starting…";
   await fetch("/api/process",{method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({folder:f, ref:ref.value, vis:parseFloat(vis.value)||1030, ranges, fit:$("#fit").checked})});
+    body:JSON.stringify({folder:f, ref:ref.value, vis:parseFloat(vis.value)||1030, ranges, mode:$("#mode").value, cosmic:$("#cosmic").checked})});
   pollTimer = setInterval(checkStatus, 350);
 };
 

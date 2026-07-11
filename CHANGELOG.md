@@ -4,6 +4,17 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.3.0] — 2026-07-11
+
+### Added
+- **Plot style selector** — choose Line / Scatter / Scatter+Fit per run
+  (replaces the single curve-fit toggle).
+- **Cosmic-ray removal** — moving-median spike detection on the normalised
+  spectrum (on by default); cleans sharp artefacts before plotting and export.
+
+### Changed
+- README showcase figure is now a clean (cosmic-ray-removed) water line chart.
+
 ## [1.2.0] — 2026-06-18
 
 ### Added
