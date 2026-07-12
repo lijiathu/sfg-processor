@@ -193,6 +193,15 @@
     place-items:center;z-index:60;padding:40px;backdrop-filter:blur(2px)}
   .modal.show{display:grid}
   .modal img{max-width:92vw;max-height:90vh;border:8px solid var(--card);box-shadow:0 30px 80px -20px #000}
+  .help-box{background:var(--card);border-radius:6px;max-width:680px;width:100%;max-height:84vh;overflow-y:auto;
+    padding:28px 34px;position:relative;box-shadow:0 30px 80px -20px #000;font-size:13.5px;line-height:1.65}
+  .help-box h3{font-family:"Fraunces",serif;font-size:19px;margin:0 0 12px}
+  .help-box h4{font-size:14px;margin:18px 0 6px;color:var(--accent)}
+  .help-box ul,.help-box ol{margin:4px 0 6px;padding-left:22px}
+  .help-box li{margin:3px 0}
+  .help-box code{background:var(--paper-2);padding:1px 5px;border-radius:3px;font-size:12px}
+  .help-close{position:absolute;top:14px;right:16px;border:none;background:none;font-size:18px;cursor:pointer;color:var(--ink-3)}
+  .help-close:hover{color:var(--ink)}
 
   footer{margin-top:14px;padding-top:12px;border-top:1px solid var(--rule);
     display:flex;justify-content:space-between;flex:0 0 auto;
@@ -221,9 +230,13 @@
         <img src="sfg_schematic.png" alt="SFG principle"/>
       </div>
       <div>
-        <h1>Sum-Frequency Atelier</h1>
-        <div class="kicker">SFG Vibrational · Spectrum Studio</div>
+        <h1 data-i18n="t_app_title">Sum-Frequency Atelier</h1>
+        <div class="kicker" data-i18n="t_app_kicker">SFG Vibrational · Spectrum Studio</div>
       </div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn-tiny btn-ghost" id="langbtn">中文</button>
+      <button class="btn-tiny btn-ghost" id="helpbtn" data-i18n="t_help">? Help</button>
     </div>
   </header>
 
@@ -231,53 +244,53 @@
     <div class="columns">
       <!-- LEFT: controls -->
       <div class="col-controls">
-        <h2 class="section-title"><span class="num">01 / SETUP</span> Data & Plotting</h2>
-        <p class="section-sub">Select a .txt data folder, then set the range(s) to plot.</p>
+        <h2 class="section-title" data-i18n="t_setup_title">01 / SETUP · Data & Plotting</h2>
+        <p class="section-sub" data-i18n="t_setup_sub">Select a .txt data folder, then set the range(s) to plot.</p>
 
         <div class="field">
-          <label>Data Folder</label>
+          <label data-i18n="t_lbl_folder">Data Folder</label>
           <div class="ctrl">
-            <input class="path" id="folder" type="text" placeholder="Click to select, or paste a path…" />
-            <button class="btn-tiny" id="browse">Select</button>
+            <input class="path" id="folder" type="text" data-i18n-ph="t_ph_folder" placeholder="Click to select, or paste a path…" />
+            <button class="btn-tiny" id="browse" data-i18n="t_select">Select</button>
           </div>
         </div>
 
         <div class="field">
-          <label>Reference</label>
-          <div class="ctrl"><select id="ref"><option value="">— Select a folder first —</option></select></div>
+          <label data-i18n="t_lbl_ref">Reference</label>
+          <div class="ctrl"><select id="ref"><option value="" data-i18n="t_ref_first">— Select a folder first —</option></select></div>
         </div>
 
         <div class="field">
-          <label>Visible λ</label>
+          <label data-i18n="t_lbl_vis">Visible λ</label>
           <div class="ctrl">
             <input id="vis" type="number" value="1030" style="max-width:120px;flex:0 0 120px" />
-            <span class="unit">nm</span>
+            <span class="unit" data-i18n="t_nm">nm</span>
           </div>
         </div>
 
         <div class="field">
-          <label>Peak centres</label>
+          <label data-i18n="t_lbl_peaks">Peak centres</label>
           <div class="ctrl">
-            <input id="peaks" type="text" style="max-width:480px" placeholder="e.g. 3200, 3400, 3700  (blank = auto-detect)" />
+            <input id="peaks" type="text" style="max-width:480px" data-i18n-ph="t_ph_peaks" placeholder="e.g. 3200, 3400, 3700  (blank = auto-detect)" />
           </div>
         </div>
 
         <div class="field">
-          <label>Cosmic rays</label>
+          <label data-i18n="t_lbl_cosmic">Cosmic rays</label>
           <div class="ctrl">
             <label class="switch"><input type="checkbox" id="cosmic" checked /><span class="track"></span><span class="knob"></span></label>
-            <span class="unit">remove spike artefacts</span>
+            <span class="unit" data-i18n="t_cosmic_sub">remove spike artefacts</span>
           </div>
         </div>
 
         <div style="margin-top:20px"><div id="ranges"></div></div>
 
         <div class="readout" id="readout">
-          <div class="empty">No data yet · select a folder to preview detected samples.</div>
+          <div class="empty" data-i18n="t_readout_empty">No data yet · select a folder to preview detected samples.</div>
         </div>
 
         <div class="action">
-          <button class="btn-primary" id="run" disabled>Process &amp; Plot<span class="arrow">→</span></button>
+          <button class="btn-primary" id="run" disabled data-i18n="t_run">Process &amp; Plot<span class="arrow">→</span></button>
         </div>
 
         <div class="progress" id="prog" style="display:none">
@@ -289,14 +302,14 @@
       <!-- RIGHT: results -->
       <div class="col-results">
         <div class="results" id="results">
-          <h3>Output</h3>
-          <p class="hint">Fit figures for the selected ranges (click to enlarge). All outputs are in <code>processed/</code>.</p>
+          <h3 data-i18n="t_out_title">Output</h3>
+          <p class="hint" data-i18n="t_out_hint">Fit figures for the selected ranges (click to enlarge). All outputs are in processed/.</p>
           <div class="gallery" id="gallery">
-            <div class="empty">Run <b>Process &amp; Plot</b> to see the fit figures here.</div>
+            <div class="empty" data-i18n="t_gallery_empty">Run Process & Plot to see the fit figures here.</div>
           </div>
           <div class="result-actions">
-            <button class="btn-tiny" id="refit">Re-fit (new peak centres)</button>
-            <button class="btn-tiny" id="openfolder">Open Output Folder</button>
+            <button class="btn-tiny" id="refit" data-i18n="t_refit">Re-fit (new peak centres)</button>
+            <button class="btn-tiny" id="openfolder" data-i18n="t_openfolder">Open Output Folder</button>
           </div>
         </div>
       </div>
@@ -304,13 +317,19 @@
   </section>
 
   <footer class="rise d4">
-    <span>SFG Processor · Li Jia · 2026 · <a href="#" id="gh-link">GitHub ↗</a> · <a href="#" id="rel-link">Updates ↗</a></span>
-    <span>read · denoise · normalize · fit</span>
+    <span>SFG Processor · Li Jia · 2026 · <a href="#" id="gh-link">GitHub ↗</a> · <a href="#" id="rel-link" data-i18n="t_updates">Updates ↗</a></span>
+    <span data-i18n="t_footer_right">read · denoise · normalize · fit</span>
   </footer>
 </div>
 
 <div class="toast" id="toast"></div>
 <div class="modal" id="modal"><img id="modalimg" alt=""/></div>
+<div class="modal help-modal" id="helpmodal">
+  <div class="help-box">
+    <button class="help-close" id="helpclose">✕</button>
+    <div id="helpcontent"></div>
+  </div>
+</div>
 
 <script>
 const $ = (s)=>document.querySelector(s);
@@ -318,6 +337,147 @@ const folder = $("#folder"), ref = $("#ref"), vis = $("#vis");
 const rangesEl = $("#ranges"), readout = $("#readout");
 const run = $("#run"), prog = $("#prog"), barfill = $("#barfill");
 const pct = $("#pct"), statustext = $("#statustext");
+
+/* ── i18n ─────────────────────────────────────────── */
+const I18N = {
+  en:{
+    t_app_title:"Sum-Frequency Atelier", t_app_kicker:"SFG Vibrational · Spectrum Studio",
+    t_help:"? Help", t_lang:"中文",
+    t_setup_title:"01 / SETUP · Data & Plotting", t_setup_sub:"Select a .txt data folder, then set the range(s) to plot.",
+    t_lbl_folder:"Data Folder", t_ph_folder:"Click to select, or paste a path…", t_select:"Select",
+    t_lbl_ref:"Reference", t_ref_first:"— Select a folder first —",
+    t_lbl_vis:"Visible λ", t_nm:"nm",
+    t_lbl_peaks:"Peak centres", t_ph_peaks:"e.g. 3200, 3400, 3700  (blank = auto-detect)",
+    t_lbl_cosmic:"Cosmic rays", t_cosmic_sub:"remove spike artefacts",
+    t_add_window:"+ Add window", t_readout_empty:"No data yet · select a folder to preview detected samples.",
+    t_run:"Process & Plot →", t_status_ready:"Ready",
+    t_out_title:"Output", t_out_hint:"Fit figures for the selected ranges (click to enlarge). All outputs are in processed/.",
+    t_gallery_empty:"Run Process & Plot to see the fit figures here.",
+    t_refit:"Re-fit (new peak centres)", t_openfolder:"Open Output Folder",
+    t_updates:"Updates ↗", t_footer_right:"read · denoise · normalize · fit",
+    t_detecting:"Detecting…", t_processing:"Processing…", t_done:"Done", t_refit_done:"Re-fit done ✦",
+    t_refitting:"Re-fitting…", t_pick_folder:"Pick a folder in the dialog…", t_process_first:"Process first"
+  },
+  zh:{
+    t_app_title:"和频光谱工坊", t_app_kicker:"SFG 振动光谱 · 光谱工作室",
+    t_help:"? 说明", t_lang:"EN",
+    t_setup_title:"01 / 设置 · 数据与绘图", t_setup_sub:"选择 .txt 数据文件夹，再设置要绘图的波数段。",
+    t_lbl_folder:"数据文件夹", t_ph_folder:"点击右侧选择，或直接粘贴路径…", t_select:"选择",
+    t_lbl_ref:"标准样品", t_ref_first:"— 请先选择文件夹 —",
+    t_lbl_vis:"可见光 λ", t_nm:"nm",
+    t_lbl_peaks:"峰位", t_ph_peaks:"如 3200, 3400, 3700  (留空=自动检测)",
+    t_lbl_cosmic:"宇宙射线", t_cosmic_sub:"去除尖峰干扰",
+    t_add_window:"+ 添加波数段", t_readout_empty:"暂无数据 · 选择文件夹以预览识别到的样品。",
+    t_run:"处理并出图 →", t_status_ready:"就绪",
+    t_out_title:"输出", t_out_hint:"选定波数段的拟合图（点击放大）。所有输出在 processed/ 文件夹。",
+    t_gallery_empty:"点击「处理并出图」在此查看拟合图。",
+    t_refit:"重新拟合（新峰位）", t_openfolder:"打开输出文件夹",
+    t_updates:"更新 ↗", t_footer_right:"读取 · 去噪 · 归一化 · 拟合",
+    t_detecting:"识别中…", t_processing:"处理中…", t_done:"完成", t_refit_done:"重新拟合完成 ✦",
+    t_refitting:"重新拟合中…", t_pick_folder:"在弹窗中选择文件夹…", t_process_first:"请先处理一次"
+  }
+};
+let LANG = localStorage.getItem("sfg_lang") || "en";
+function T(k){ return (I18N[LANG] && I18N[LANG][k]) || (I18N.en[k]) || k; }
+function applyLang(){
+  document.querySelectorAll("[data-i18n]").forEach(e=>{ e.innerHTML = T(e.dataset.i18n); });
+  document.querySelectorAll("[data-i18n-ph]").forEach(e=>{ e.placeholder = T(e.dataset.i18nPh); });
+  $("#langbtn").textContent = T("t_lang");
+  document.documentElement.lang = LANG==="zh"?"zh":"en";
+}
+$("#langbtn").onclick = ()=>{ LANG = LANG==="en"?"zh":"en"; localStorage.setItem("sfg_lang",LANG); applyLang(); applyHelp(); };
+const HELP = {
+  zh:`<h3>使用说明</h3>
+    <h4>1. 数据准备</h4>
+    <ul>
+      <li>文件必须是 <b>.txt</b>，两列空白分隔：<b>波长(nm)</b> 与 <b>强度</b>。</li>
+      <li>命名格式：<code>样品名_波数_标志.txt</code>，例：<code>Water_3200_Purge.txt</code>（样品=Water，波数=3200）</li>
+      <li>文件名含 <code>NoVis</code> 的自动作为<b>背景</b>，例：<code>Water_3200_Purge_NoVis.txt</code></li>
+      <li>样品名可含下划线/连字符，但<b>不要用纯数字</b>（否则被当成波数）。</li>
+    </ul>
+    <h4>2. 文件夹组织</h4>
+    <ul>
+      <li>一个文件夹放：<b>1 个标准样品</b>（如 quartz）+ <b>若干测试样品</b>。</li>
+      <li>标准样品做归一化分母，一个可归一化多个测试样品，无需复制。</li>
+      <li>支持子文件夹嵌套，递归扫描。</li>
+    </ul>
+    <h4>3. 操作步骤</h4>
+    <ol>
+      <li>点 <b>选择</b> 选数据文件夹 → 自动扫描识别样品。</li>
+      <li>确认 <b>标准样品</b>（默认 quartz）。</li>
+      <li>设 <b>可见光 λ</b>（默认 1030 nm）。</li>
+      <li><b>波数段</b>：点 + 添加波数段 加要出图的范围（如 3000-3750）。</li>
+      <li><b>峰位</b>（可选）：填拟合峰位如 <code>3200, 3400, 3650</code>；留空自动检测。</li>
+      <li>点 <b>处理并出图</b> → 右栏出拟合图。</li>
+      <li>改峰位 → 点 <b>重新拟合</b> → 秒出新拟合，反复调到满意。</li>
+    </ol>
+    <h4>4. 输出（在数据文件夹的 <code>processed/</code> 子目录）</h4>
+    <ul>
+      <li>各样品去噪图、sum 曲线图</li>
+      <li>测试样品全范围图（折线 + 散点）</li>
+      <li>各波数段图（折线 / 散点 / 拟合 三种）</li>
+      <li><code>processed_SFG.xlsx</code>（各样品数据 + 拟合峰参数表）</li>
+    </ul>
+    <h4>5. 拟合说明</h4>
+    <ul>
+      <li>物理正确的 χ⁽²⁾ 模型：<code>I = |χ_NR·e^{iφ} + Σ A_q/(ω_q-ω-iΓ_q)|²</code>。</li>
+      <li>峰位可手填（更准）或自动检测；点重新拟合用新峰位即时重拟合。</li>
+      <li>峰参数（中心/半高宽/振幅/面积/误差）在 Excel 的 <code>样品_peaks</code> 表。</li>
+    </ul>
+    <h4>6. 常见问题</h4>
+    <ul>
+      <li><b>没识别到样品</b> → 检查文件名是否符合 <code>样品名_波数_标志.txt</code>。</li>
+      <li><b>提示需要标准样品</b> → 至少 1 个标准样品 + 1 个测试样品。</li>
+      <li><b>图片不显示</b> → 确认是有效 .txt 两列格式。</li>
+      <li><b>拟合不好</b> → 手填更准的峰位再重新拟合，或增删峰数量。</li>
+    </ul>`,
+  en:`<h3>How to use</h3>
+    <h4>1. Data preparation</h4>
+    <ul>
+      <li>Files must be <b>.txt</b>, two whitespace-separated columns: <b>wavelength (nm)</b> and <b>intensity</b>.</li>
+      <li>Naming: <code>sample_wavenumber_flags.txt</code>, e.g. <code>Water_3200_Purge.txt</code> (sample=Water, wavenumber=3200).</li>
+      <li>A filename containing <code>NoVis</code> is auto-treated as the <b>background</b>, e.g. <code>Water_3200_Purge_NoVis.txt</code>.</li>
+      <li>Sample names may contain underscores/hyphens, but <b>not be purely numeric</b> (else read as the wavenumber).</li>
+    </ul>
+    <h4>2. Folder layout</h4>
+    <ul>
+      <li>Put in one folder: <b>1 reference sample</b> (e.g. quartz) + <b>several test samples</b>.</li>
+      <li>The reference is the normalisation denominator; one reference can normalise many test samples — no copying needed.</li>
+      <li>Subfolders are scanned recursively.</li>
+    </ul>
+    <h4>3. Steps</h4>
+    <ol>
+      <li>Click <b>Select</b> to pick the data folder → samples are auto-detected.</li>
+      <li>Confirm the <b>Reference</b> (default quartz).</li>
+      <li>Set <b>Visible λ</b> (default 1030 nm).</li>
+      <li><b>Wavenumber Windows</b>: click + Add window for each range (e.g. 3000-3750).</li>
+      <li><b>Peak centres</b> (optional): enter fit peaks, e.g. <code>3200, 3400, 3650</code>; blank = auto-detect.</li>
+      <li>Click <b>Process & Plot</b> → the fit figure appears on the right.</li>
+      <li>Edit peaks → click <b>Re-fit</b> → instant new fit; repeat until satisfied.</li>
+    </ol>
+    <h4>4. Output (in the data folder's <code>processed/</code> subfolder)</h4>
+    <ul>
+      <li>Per-sample denoised & sum-curve figures</li>
+      <li>Test-sample full-range figures (line + scatter)</li>
+      <li>Per-range figures (line / scatter / fit)</li>
+      <li><code>processed_SFG.xlsx</code> (per-sample data + peak-fit table)</li>
+    </ul>
+    <h4>5. Fitting</h4>
+    <ul>
+      <li>Physically-correct χ⁽²⁾ model: <code>I = |χ_NR·e^{iφ} + Σ A_q/(ω_q-ω-iΓ_q)|²</code>.</li>
+      <li>Peaks can be entered manually (more accurate) or auto-detected; Re-fit re-fits instantly with new peaks.</li>
+      <li>Peak parameters (centre / FWHM / amplitude / area / error) are in the Excel <code>sample_peaks</code> sheet.</li>
+    </ul>
+    <h4>6. Troubleshooting</h4>
+    <ul>
+      <li><b>No samples detected</b> → check filenames match <code>sample_wavenumber_flags.txt</code>.</li>
+      <li><b>Needs a reference</b> → at least 1 reference + 1 test sample in the folder.</li>
+      <li><b>Image not showing</b> → confirm valid .txt two-column data.</li>
+      <li><b>Poor fit</b> → enter more accurate peak centres and Re-fit, or add/remove peaks.</li>
+    </ul>`
+};
+function applyHelp(){ const c=$("#helpcontent"); if(c) c.innerHTML = HELP[LANG] || HELP.en; }
+applyLang(); applyHelp();
 const results = $("#results"), gallery = $("#gallery");
 const toastEl = $("#toast");
 let res = null;  // last process result (folder, images, excel) — shared with Re-fit
@@ -359,7 +519,7 @@ rangesEl.appendChild(rangeRow(3000,3750));
 /* add-range button */
 {
   const add = document.createElement("button");
-  add.className="btn-tiny btn-ghost"; add.textContent="+ Add window";
+  add.className="btn-tiny btn-ghost"; add.textContent=T("t_add_window");
   add.style.marginTop="6px";
   add.onclick=()=>rangesEl.appendChild(rangeRow("", ""));
   rangesEl.after(add);
@@ -367,7 +527,7 @@ rangesEl.appendChild(rangeRow(3000,3750));
 
 /* browse via backend tkinter dialog */
 $("#browse").onclick = async ()=>{
-  toast("Pick a folder in the dialog…");
+  toast(T("t_pick_folder"));
   try{
     const r = await fetch("/api/browse",{method:"POST"}).then(r=>r.json());
     if(r.path){ folder.value=r.path; await scan(); }
@@ -378,7 +538,7 @@ $("#browse").onclick = async ()=>{
 async function scan(){
   const f = folder.value.trim();
   if(!f){ toast("Select a data folder first", true); return; }
-  ref.innerHTML="<option>Detecting…</option>";
+  ref.innerHTML="<option>"+T("t_detecting")+"</option>";
   const r = await fetch("/api/scan",{method:"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify({folder:f})}).then(r=>r.json());
   if(r.error){ readout.innerHTML=`<div class="empty" style="color:var(--danger)">${r.error}</div>`;
@@ -425,8 +585,8 @@ function checkStatus(){
 
 function showResult(data){
   res = data;  // stash for Re-fit
-  statustext.textContent="Done";
-  toast("Processing complete ✦");
+  statustext.textContent=T("t_done");
+  toast(T("t_done"));
   results.style.display="block";
   renderGallery(res.images, res.folder);
   // excel download + open folder
@@ -448,8 +608,8 @@ function renderGallery(images, folder){
 
 /* iterative peak-centre refinement: re-fit the cached data, refresh gallery */
 $("#refit").onclick = async ()=>{
-  if(!res||!res.folder){ toast("Process first"); return; }
-  toast("Re-fitting…");
+  if(!res||!res.folder){ toast(T("t_process_first")); return; }
+  toast(T("t_refitting"));
   const ranges=getRanges();
   const peaks=$("#peaks").value.split(",").map(s=>s.trim()).filter(Boolean);
   const r=await fetch("/api/refit",{method:"POST",headers:{"Content-Type":"application/json"},
@@ -458,7 +618,7 @@ $("#refit").onclick = async ()=>{
   res.images=r.images; res.folder=r.folder;
   results.style.display="block";
   renderGallery(r.images, r.folder);
-  toast("Re-fit done ✦");
+  toast(T("t_refit_done"));
 };
 
 /* thumbnail → modal */
@@ -467,6 +627,12 @@ gallery.addEventListener("click",(e)=>{
   e.preventDefault();
   $("#modalimg").src=t.src; $("#modal").classList.add("show");
 });
+$("#modal").addEventListener("click",(e)=>{ if(e.target.id==="modal") $("#modal").classList.remove("show"); });
+
+/* help modal */
+$("#helpbtn").onclick=()=>{ applyHelp(); $("#helpmodal").classList.add("show"); };
+$("#helpclose").onclick=()=>$("#helpmodal").classList.remove("show");
+$("#helpmodal").addEventListener("click",(e)=>{ if(e.target.id==="helpmodal") $("#helpmodal").classList.remove("show"); });
 
 /* footer links open in the system browser via backend */
 const openUrl=(u)=>fetch("/api/openurl",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url:u})});
