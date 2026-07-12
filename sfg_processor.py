@@ -94,7 +94,7 @@ def _set_nature_style():
     plt.rcParams.update({
         "figure.dpi": 200,
         "font.family": "sans-serif",
-        "font.sans-serif": ["Helvetica", "Arial", "DejaVu Sans"],
+        "font.sans-serif": ["DejaVu Sans", "Arial", "Helvetica"],
         "font.size": 11,
         "axes.linewidth": 0.9,
         "axes.edgecolor": "#111111",
@@ -360,7 +360,7 @@ def _plot_nature(norm_df, sample, ref_sample, save_path, xlim=None, mode="fit",
         xlim = (float(xs.min()), float(xs.max()))
         title_range = "full range"
     else:
-        title_range = f"{xlim[0]}-{xlim[1]} cm$^{{-1}}$"
+        title_range = f"{xlim[0]}-{xlim[1]} cm⁻¹"
 
     fig, ax = plt.subplots(figsize=(5.4, 3.6))
     if mode == "line":
@@ -383,7 +383,7 @@ def _plot_nature(norm_df, sample, ref_sample, save_path, xlim=None, mode="fit",
                         label="smooth")
     ax.set_xlim(xlim)
     ax.set_ylim(y_lo, y_hi)
-    ax.set_xlabel(r"Wavenumber (cm$^{-1}$)")
+    ax.set_xlabel("Wavenumber (cm⁻¹)")
     ax.set_ylabel("SFG signal (a.u.)")
     ax.set_title(f"{sample} / {ref_sample}   ({title_range})",
                  loc="left", pad=8)
@@ -402,7 +402,7 @@ def _plot_denoised(df, sample, save_path):
     for col in df.columns:
         if col not in ["IR_wavenumber_cm-1", "sum"]:
             plt.plot(df["IR_wavenumber_cm-1"], df[col], label=col)
-    plt.xlabel(r"IR Wavenumber (cm$^{-1}$)")
+    plt.xlabel("IR Wavenumber (cm⁻¹)")
     plt.ylabel("SFG Intensity")
     plt.title(f"SFG Spectrum (denoised): {sample}")
     plt.legend(loc="upper right")
@@ -411,23 +411,24 @@ def _plot_denoised(df, sample, save_path):
     plt.close()
 
 
-def _plot_denoised(df, sample, save_path):
-    """Plot denoised spectrum."""
+def _plot_sum_curve(df, sample, save_path):
+    """Plot the 'sum' column vs wavenumber for a sample sheet."""
+    if "sum" not in df.columns or "IR_wavenumber_cm-1" not in df.columns:
+        return
+    x = df["IR_wavenumber_cm-1"].values
+    y = df["sum"].values
     plt.figure(figsize=(6, 4))
-    for col in df.columns:
-        if col not in ["IR_wavenumber_cm-1", "sum"]:
-            plt.plot(df["IR_wavenumber_cm-1"], df[col], label=col)
-    plt.xlabel(r"IR Wavenumber (cm$^{-1}$)")
-    plt.ylabel("SFG Intensity")
-    plt.title(f"SFG Spectrum (denoised): {sample}")
-    plt.legend(loc="upper right")
+    plt.plot(x, y, color="#1b3a4b", linewidth=1.5)
+    plt.xlabel("Wavenumber (cm⁻¹)")
+    plt.ylabel("Sum intensity (a.u.)")
+    plt.title(f"Sum spectrum: {sample}")
     plt.tight_layout()
     plt.savefig(save_path, dpi=300)
     plt.close()
 
 
 def process_experiment(folder_path, ref_sample_name, lambda_vis=1030.0,
-                       x_ranges=None, progress_callback=None, mode="fit",
+                       x_ranges=None, progress_callback=None,
                        cosmic=True, peaks_hint=None):
     """
     Main processing: scan, denoise, normalize, output Excel and plots.
@@ -444,7 +445,10 @@ def process_experiment(folder_path, ref_sample_name, lambda_vis=1030.0,
     """
     if x_ranges is None:
         x_ranges = [(3000, 3800)]
-    output_excel = os.path.join(folder_path, "processed_SFG.xlsx")
+    # all outputs go into a dedicated post-processing subfolder
+    out_dir = os.path.join(folder_path, "processed")
+    os.makedirs(out_dir, exist_ok=True)
+    output_excel = os.path.join(out_dir, "processed_SFG.xlsx")
 
     # 1. Scan files
     if progress_callback:
@@ -531,35 +535,47 @@ def process_experiment(folder_path, ref_sample_name, lambda_vis=1030.0,
         for sample, df in sample_sheets.items():
             df.to_excel(writer, sheet_name=sample[:31], index=False)
 
-    # 6. Plot — Nature style (scatter + fit).
-    #    Always emit a full-range figure; each selected range adds a zoomed one.
+    # 6. Plot — all figure types into the processed/ subfolder.
     if progress_callback:
         progress_callback(4, 5, "Plotting...")
     _set_nature_style()
     peak_sheets = {}  # sample -> DataFrame of peak parameters
+    # 6a. per-sample denoised + sum-curve (all samples incl. reference)
+    for sample in samples:
+        if sample not in sample_sheets:
+            continue
+        df = sample_sheets[sample]
+        _plot_denoised(df, sample, os.path.join(out_dir, f"{sample}_denoised.png"))
+        _plot_sum_curve(df, sample, os.path.join(out_dir, f"{sample}_sum.png"))
+    # 6b. normalised figures for test samples
     for sample in test_samples:
         norm_key = sample + "_normalized"
         if norm_key not in sample_sheets:
             continue
         norm_df = sample_sheets[norm_key]
-        # full-range normalized figure (always)
+        # full-range: line + scatter
         _plot_nature(norm_df, sample, ref_sample_name,
-                     os.path.join(folder_path, f"{sample}_normalized_full.png"),
-                     mode=mode, peaks_hint=peaks_hint)
-        # one zoomed figure per selected range (capture peak table)
+                     os.path.join(out_dir, f"{sample}_full_line.png"), mode="line")
+        _plot_nature(norm_df, sample, ref_sample_name,
+                     os.path.join(out_dir, f"{sample}_full_scatter.png"), mode="scatter")
+        # each selected range: line + scatter + fit
         for x_min, x_max in x_ranges:
+            _plot_nature(norm_df, sample, ref_sample_name,
+                         os.path.join(out_dir, f"{sample}_{x_min}_{x_max}_line.png"),
+                         mode="line", xlim=(x_min, x_max))
+            _plot_nature(norm_df, sample, ref_sample_name,
+                         os.path.join(out_dir, f"{sample}_{x_min}_{x_max}_scatter.png"),
+                         mode="scatter", xlim=(x_min, x_max))
             tbl = _plot_nature(norm_df, sample, ref_sample_name,
-                               os.path.join(folder_path,
-                                            f"{sample}_normalized_{x_min}_{x_max}.png"),
-                               xlim=(x_min, x_max), mode=mode, peaks_hint=peaks_hint)
-            if tbl and sample not in peak_sheets:
+                               os.path.join(out_dir, f"{sample}_{x_min}_{x_max}_fit.png"),
+                               mode="fit", xlim=(x_min, x_max), peaks_hint=peaks_hint)
+            if tbl:
                 rows = [{"range": f"{x_min}-{x_max}", **r} for r in tbl]
-                peak_sheets[sample] = pd.DataFrame(rows)
-    for sample in samples:
-        if sample not in sample_sheets:
-            continue
-        _plot_denoised(sample_sheets[sample], sample,
-                       os.path.join(folder_path, f"{sample}_denoised.png"))
+                if sample in peak_sheets:
+                    peak_sheets[sample] = pd.concat(
+                        [peak_sheets[sample], pd.DataFrame(rows)], ignore_index=True)
+                else:
+                    peak_sheets[sample] = pd.DataFrame(rows)
 
     # 7. Append peak-fit tables to the workbook (if multi-peak fit ran)
     if peak_sheets:

@@ -4,33 +4,33 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [1.4.0] — 2026-07-12
+## [1.3.0] — 2026-07-12
 
 ### Added
-- **Physically-correct χ⁽²⁾ fit** — Scatter+Fit now fits
+- **Physically-correct χ⁽²⁾ fit** — fits
   `I = |χ_NR·e^{iφ} + Σ A_q/(ω_q-ω-iΓ_q)|²` (complex χ summed then modulus
-  squared, preserving non-resonant interference), with multi-start guesses and
-  best-R² selection. Peak table (centre / FWHM / amplitude / area / error)
-  exported to Excel.
-- **Iterative peak refinement** — a "Re-fit" button re-fits the cached
-  normalised data with new peak centres instantly (no re-scan), so positions can
-  be tuned until the result looks right.
-- **Manual peak centres** — specify initial peak positions (e.g. 3200, 3400, 3650).
-
-### Removed
-- **`.ngs` support dropped** — the app now reads `.txt` exports only (UI, docs,
-  and core). The native binary reader is removed.
-
-## [1.3.0] — 2026-07-11
-
-### Added
-- **Plot style selector** — choose Line / Scatter / Scatter+Fit per run
-  (replaces the single curve-fit toggle).
-- **Cosmic-ray removal** — moving-median spike detection on the normalised
-  spectrum (on by default); cleans sharp artefacts before plotting and export.
+  squared, preserving non-resonant interference), multi-start, best-R².
+  Peak table (centre / FWHM / amplitude / area / error) exported to Excel.
+- **Iterative Re-fit** — re-fit cached data with new peak centres instantly
+  (no re-scan); refine until it looks right. Manual peak-centre input.
+- **Structured `processed/` output** — every run writes denoised + sum-curve +
+  full-range (line & scatter) + per-range (line / scatter / fit) figures and
+  the Excel workbook into a dedicated `processed/` subfolder.
+- **Cosmic-ray removal** — moving-median spike cleaning on the normalised
+  spectrum (on by default).
+- **GitHub links in the footer** — open the repo / Releases in the system
+  browser.
+- **Adaptive window** — sizes to the screen; full-height layout keeps the
+  footer always visible (columns scroll internally).
 
 ### Changed
-- README showcase figure is now a clean (cosmic-ray-removed) water line chart.
+- **Two-column UI** — controls left, results right; no page scrolling.
+- Axis labels use Unicode `cm⁻¹` (DejaVu Sans) — natural superscript, no tofu.
+- README showcase = clean water line chart (20260324 data).
+
+### Removed
+- `.ngs` support — reads `.txt` exports only (UI, docs, core).
+- Plot-style dropdown — line / scatter / fit are all generated automatically.
 
 ## [1.2.0] — 2026-06-18
 

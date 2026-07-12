@@ -128,9 +128,6 @@ def api_process():
     vis = float(d.get("vis", 1030))
     ranges = d.get("ranges") or []
     ranges = [(int(a), int(b)) for a, b in ranges if a < b]
-    mode = d.get("mode", "fit")
-    if mode not in ("line", "scatter", "fit"):
-        mode = "fit"
     cosmic = bool(d.get("cosmic", True))
     peaks_hint = [p for p in d.get("peaks", []) if p]
     try:
@@ -143,10 +140,12 @@ def api_process():
                      current=0, total=5, message="Starting…")
         try:
             out = process_experiment(folder, ref, lambda_vis=vis,
-                                     x_ranges=ranges, mode=mode, cosmic=cosmic,
+                                     x_ranges=ranges, cosmic=cosmic,
                                      peaks_hint=peaks_hint or None,
                                      progress_callback=_progress)
-            imgs = sorted(glob.glob(os.path.join(folder, "*_normalized_*.png")))
+            # gallery shows only the per-range FIT figures
+            out_dir = os.path.join(folder, "processed")
+            imgs = sorted(glob.glob(os.path.join(out_dir, "*_[0-9]*_[0-9]*_fit.png")))
             # cache normalised spectra so peak positions can be refined fast
             import pandas as pd
             cache = {}
@@ -175,10 +174,10 @@ def api_process():
 
 @app.route("/api/refit", methods=["POST"])
 def api_refit():
-    """Fast re-fit of the cached normalised data with new peak centres/mode.
+    """Re-generate only the per-range figures (line/scatter/fit) with new peaks.
 
-    No re-scan — just re-fit and re-plot, so peak positions can be refined
-    iteratively until the result looks right.
+    No re-scan; all other outputs (denoised, sum curves, full-range, Excel) stay
+    untouched. Only the given-wavenumber-range figures are refreshed.
     """
     cache = STATE.get("norm_cache")
     if not cache:
@@ -188,11 +187,10 @@ def api_refit():
         peaks_hint = [float(p) for p in d.get("peaks", []) if p] or None
     except (TypeError, ValueError):
         peaks_hint = None
-    mode = d.get("mode", "fit")
-    mode = mode if mode in ("line", "scatter", "fit") else "fit"
     ranges = [(int(a), int(b)) for a, b in (d.get("ranges") or []) if a < b]
     ref = d.get("ref", STATE.get("ref", "ref"))
     folder = STATE.get("folder", "")
+    out_dir = os.path.join(folder, "processed")
     from sfg_processor import _set_nature_style, _plot_nature
     import pandas as pd
     try:
@@ -200,15 +198,14 @@ def api_refit():
         for sample, xy in cache.items():
             norm_df = pd.DataFrame({"IR_wavenumber_cm-1": xy["x"],
                                     "normalized_sum": xy["y"]})
-            _plot_nature(norm_df, sample, ref,
-                         os.path.join(folder, f"{sample}_normalized_full.png"),
-                         mode=mode, peaks_hint=peaks_hint)
             for x_min, x_max in ranges:
-                _plot_nature(norm_df, sample, ref,
-                             os.path.join(folder,
-                                          f"{sample}_normalized_{x_min}_{x_max}.png"),
-                             xlim=(x_min, x_max), mode=mode, peaks_hint=peaks_hint)
-        imgs = sorted(glob.glob(os.path.join(folder, "*_normalized_*.png")))
+                for mode in ("line", "scatter", "fit"):
+                    _plot_nature(norm_df, sample, ref,
+                                 os.path.join(out_dir,
+                                              f"{sample}_{x_min}_{x_max}_{mode}.png"),
+                                 mode=mode, xlim=(x_min, x_max),
+                                 peaks_hint=peaks_hint)
+        imgs = sorted(glob.glob(os.path.join(out_dir, "*_[0-9]*_[0-9]*_fit.png")))
         return jsonify({"images": imgs, "folder": folder})
     except Exception as e:  # pragma: no cover
         return jsonify({"error": str(e)}), 500
@@ -219,6 +216,21 @@ def api_status():
     return jsonify(dict(STATE))
 
 
+@app.route("/api/openurl", methods=["POST"])
+def api_openurl():
+    """Open an external URL in the system browser (footer GitHub links)."""
+    d = request.get_json(silent=True) or {}
+    url = d.get("url", "")
+    # whitelist the project's own GitHub pages
+    if not url.startswith("https://github.com/lijiathu/sfg-processor"):
+        return jsonify({"error": "URL not allowed"}), 400
+    try:
+        webbrowser.open(url)
+    except Exception as e:  # pragma: no cover
+        return jsonify({"error": str(e)}), 500
+    return jsonify({"ok": True})
+
+
 @app.route("/file")
 def api_file():
     folder = request.args.get("folder", "")
@@ -227,6 +239,23 @@ def api_file():
     if not path or not _within(folder, path):
         abort(404)
     return send_file(path, as_attachment=bool(dl))
+
+
+@app.route("/img")
+def api_img():
+    """Serve a figure from the cached output folder by ASCII filename.
+
+    Avoids putting the (possibly Chinese) folder path in the URL query string,
+    which mangles non-ASCII characters. The folder is resolved server-side.
+    """
+    name = request.args.get("name", "")
+    folder = STATE.get("folder", "")
+    if not name or not folder or "/" in name or "\\" in name:
+        abort(404)
+    fp = os.path.join(folder, "processed", name)
+    if not os.path.isfile(fp):
+        abort(404)
+    return send_file(fp)
 
 
 @app.route("/api/open", methods=["POST"])
@@ -288,10 +317,20 @@ def main():
         return
 
     # open a native desktop window (no browser/address bar); fall back to browser
+    # window size adapts to the screen so it fits on small laptops too
+    try:
+        import tkinter as tk
+        _r = tk.Tk(); _r.withdraw()
+        sw, sh = _r.winfo_screenwidth(), _r.winfo_screenheight()
+        _r.destroy()
+    except Exception:
+        sw, sh = 1440, 900
+    win_w = min(1440, max(1100, sw - 80))
+    win_h = min(900, max(680, sh - 80))
     try:
         import webview
-        webview.create_window("SFG Processor", url, width=900, height=940,
-                              min_size=(640, 720))
+        webview.create_window("SFG Processor", url, width=win_w, height=win_h,
+                              min_size=(1000, 600))
         webview.start()
     except Exception:
         webbrowser.open(url)
