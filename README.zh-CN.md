@@ -9,7 +9,7 @@
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.8+-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
-![Status](https://img.shields.io/badge/status-v1.4.0-success.svg)
+![Status](https://img.shields.io/badge/status-v1.5.0-success.svg)
 
 [English](README.md) · **简体中文**
 
@@ -30,7 +30,7 @@
 - **读取 `.txt` 光谱** —— 两列空白分隔导出（波长、强度）。
 - **一键批量处理** —— 选定一个实验目录，程序递归找出所有样品、自动匹配每个 `NoVis` 背景，并用**同一个标准样品**（如 quartz）归一化所有测试样品。再也不用手动复制标准数据。
 - **多文件夹批量** —— 上级目录里每个子文件夹各是一个实验，一次运行全部处理：各子文件夹的标准样品自动识别（优先 quartz，可改），`processed/` 输出直接生成在各自数据旁。
-- **波数匹配归一化** —— 测试样品里标准样品缺失的波数自动剔除出归一化（原始数据不动）；最后追加一个 `Matched_norm` 表，汇总匹配后的各样品 sum 值与归一化值。
+- **波数匹配归一化** —— 测试样品里标准样品缺失的波数自动剔除出归一化（原始数据不动）；最后追加一个 `Matched_norm` 表，每样品 4 列：波数 · 样品匹配 sum · 标准样品匹配 sum · 归一化值。
 - **可选 χ² 拟合与宇宙射线去除** —— 均为开关（默认关闭）。拟合叠加多峰洛伦兹曲线、逐段拟合图与峰表；峰位可手填、可即时重拟合微调。
 - **可随时取消** —— 运行中按钮变为 ✕ 取消；即使正在拟合也能很快停下，已生成的结果保留。
 - **出版级图形** —— 散点 + 平滑拟合曲线，Helvetica 字体，细坐标轴，无网格。Y 轴按拟合曲线自适应缩放，单个噪声尖峰不会压垮整张图。
@@ -67,7 +67,7 @@ python sfg_app.py
 
 | 文件 | 内容 |
 |------|------|
-| `processed_SFG.xlsx` | AllData · 各样品去噪 / 归一化表 · 峰表（开 χ² 拟合时） · `Matched_norm`（波数匹配后的 sum 值 + 归一化值） |
+| `processed_SFG.xlsx` | AllData · 各样品去噪 / 归一化表 · 峰表（开 χ² 拟合时） · `Matched_norm`（波数 · 样品/标准样品匹配 sum · 归一化值） |
 | `{样品}_denoised.png` | 各波数去噪分量 |
 | `{样品}_full_{line,scatter}.png` | 全范围归一化图（始终生成） |
 | `{样品}_{最小}_{最大}_{line,scatter,fit}.png` | 每个选定波数段一组（`fit` 仅在开启 χ² 拟合时生成） |

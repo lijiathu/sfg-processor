@@ -176,6 +176,107 @@ class TestCancelEndpoint:
         assert STATE["cancel_requested"] is True
 
 
+class TestOpenFolder:
+    """The 'Open Output Folder' button: single mode jumps straight into
+    <folder>/processed (all outputs live there); multi mode opens the
+    parent folder (each subfolder has its own processed/)."""
+
+    @staticmethod
+    def _capture_opens(monkeypatch):
+        opened = []
+        monkeypatch.setattr(os, "startfile",
+                            lambda p: opened.append(p), raising=False)
+        return opened
+
+    def test_single_mode_opens_processed_subfolder(self, client, tmp_path,
+                                                   monkeypatch):
+        opened = self._capture_opens(monkeypatch)
+        (tmp_path / "processed").mkdir()
+        r = client.post("/api/open",
+                        json={"folder": str(tmp_path), "mode": "single"})
+        assert r.get_json() == {"ok": True}
+        assert opened == [os.path.join(str(tmp_path), "processed")]
+
+    def test_single_mode_without_processed_falls_back_to_folder(
+            self, client, tmp_path, monkeypatch):
+        opened = self._capture_opens(monkeypatch)
+        r = client.post("/api/open",
+                        json={"folder": str(tmp_path), "mode": "single"})
+        assert r.get_json() == {"ok": True}
+        assert opened == [str(tmp_path)]
+
+    def test_multi_mode_opens_parent_even_with_stray_processed(
+            self, client, tmp_path, monkeypatch):
+        """Mode-aware, not a blind heuristic: a leftover processed/ child at
+        the parent must not hijack a multi-folder run's click."""
+        opened = self._capture_opens(monkeypatch)
+        (tmp_path / "processed").mkdir()
+        r = client.post("/api/open",
+                        json={"folder": str(tmp_path), "mode": "multi"})
+        assert r.get_json() == {"ok": True}
+        assert opened == [str(tmp_path)]
+
+    @pytest.mark.parametrize("mode", ["single", "multi"])
+    def test_mode_falls_back_to_state_for_refit_calls(
+            self, client, tmp_path, monkeypatch, mode):
+        """The re-fit response carries no mode — the endpoint must read it
+        from STATE so the button still targets the right folder afterwards."""
+        opened = self._capture_opens(monkeypatch)
+        STATE.update(mode=mode)
+        (tmp_path / "processed").mkdir()
+        r = client.post("/api/open", json={"folder": str(tmp_path)})
+        assert r.get_json() == {"ok": True}
+        expected = (os.path.join(str(tmp_path), "processed")
+                    if mode == "single" else str(tmp_path))
+        assert opened == [expected]
+
+    def test_missing_folder_returns_ok_without_opening(
+            self, client, tmp_path, monkeypatch):
+        opened = self._capture_opens(monkeypatch)
+        r = client.post("/api/open",
+                        json={"folder": str(tmp_path / "nope"),
+                              "mode": "single"})
+        assert r.get_json() == {"ok": True}
+        assert opened == []
+
+    def test_end_to_end_single_run_payload_opens_processed(
+            self, client, tmp_path, monkeypatch):
+        """Feed the endpoint the exact payload the frontend builds from a
+        real run's result — it must land on <folder>/processed."""
+        opened = self._capture_opens(monkeypatch)
+        _make_experiment(tmp_path)
+        body = {"folder": str(tmp_path), "ref": "quartz", "vis": 1030,
+                "ranges": [[3100, 3700]], "cosmic": False, "peaks": [],
+                "fit": False}
+        assert client.post("/api/process", json=body).status_code == 200
+        result = _wait_done(client)["result"]
+        assert result["mode"] == "single"
+        r = client.post("/api/open", json={"folder": result["folder"],
+                                           "mode": result["mode"]})
+        assert r.get_json() == {"ok": True}
+        assert opened == [os.path.join(str(tmp_path), "processed")]
+
+    def test_end_to_end_multi_run_payload_opens_parent(
+            self, client, tmp_path, monkeypatch):
+        opened = self._capture_opens(monkeypatch)
+        for name in ("A", "B"):
+            sub = tmp_path / name
+            sub.mkdir()
+            _make_experiment(sub)
+        body = {"mode": "multi", "folder": str(tmp_path), "vis": 1030,
+                "ranges": [[3100, 3700]], "cosmic": False, "peaks": [],
+                "fit": False,
+                "folders": [{"name": "A", "ref": "quartz"},
+                            {"name": "B", "ref": "quartz"}]}
+        assert client.post("/api/process", json=body).status_code == 200
+        result = _wait_done(client)["result"]
+        assert result["mode"] == "multi"
+        r = client.post("/api/open", json={"folder": result["folder"],
+                                           "mode": result["mode"]})
+        assert r.get_json() == {"ok": True}
+        assert opened == [str(tmp_path)]
+
+
 class TestSingleProcessGallery:
     def test_fit_off_gallery_uses_scatter_figures(self, client, tmp_path):
         _make_experiment(tmp_path)

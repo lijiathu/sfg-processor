@@ -429,7 +429,16 @@ def api_img():
 
 @app.route("/api/open", methods=["POST"])
 def api_open():
-    folder = (request.get_json(silent=True) or {}).get("folder", "")
+    d = request.get_json(silent=True) or {}
+    folder = d.get("folder", "")
+    # single-experiment runs put every output in <folder>/processed — jump
+    # straight to it; multi-folder runs open the parent folder (each
+    # subfolder carries its own processed/). Mode comes from the request,
+    # falling back to STATE so post-refit calls (which omit it) still work.
+    if folder and (d.get("mode") or STATE.get("mode")) == "single":
+        processed = os.path.join(folder, "processed")
+        if os.path.isdir(processed):
+            folder = processed
     try:
         if os.path.isdir(folder):
             if os.name == "nt":

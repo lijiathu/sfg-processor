@@ -735,7 +735,7 @@ function showResult(data, quiet){
   if(!quiet){ statustext.textContent=T("t_done"); toast(T("t_done")); }
   results.style.display="block";
   renderGallery(res.images);
-  $("#openfolder").onclick = ()=>fetch("/api/open",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({folder:res.folder})});
+  $("#openfolder").onclick = ()=>fetch("/api/open",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({folder:res.folder,mode:res.mode})});
 }
 
 /* shared gallery renderer (cache-busted so Re-fit always shows fresh images).

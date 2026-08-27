@@ -606,13 +606,26 @@ def process_experiment(folder_path, ref_sample_name, lambda_vis=1030.0,
             norm_df["normalized_sum"] = remove_cosmics(norm_df["normalized_sum"].values)
         sample_sheets[sample + "_normalized"] = norm_df
 
+        # 4-column layout per test sample: wavenumber · sample matched sum ·
+        # reference matched sum · normalised value (so the ratio's numerator
+        # and denominator are both visible in the sheet)
         one = pd.DataFrame({
             "IR_wavenumber_cm-1": df_w["IR_wavenumber_cm-1"],
             f"{sample}_sum_matched": sum_w,
+            f"{ref_sample_name}_sum_matched": sum_r,
             f"{sample}_normalized": norm_df["normalized_sum"],
         })
-        matched_df = one if matched_df is None else matched_df.merge(
-            one, on="IR_wavenumber_cm-1", how="outer")
+        if matched_df is None:
+            matched_df = one
+        else:
+            # the reference column already exists from the first sample; a
+            # later sample may pair different sweeps, so its own reference
+            # sum gets a sample-specific column instead of colliding
+            one = one.rename(columns={
+                f"{ref_sample_name}_sum_matched":
+                    f"{ref_sample_name}_sum_matched_for_{sample}"})
+            matched_df = matched_df.merge(
+                one, on="IR_wavenumber_cm-1", how="outer")
 
     # 5. Write Excel
     with pd.ExcelWriter(output_excel, engine="xlsxwriter") as writer:
@@ -675,7 +688,8 @@ def process_experiment(folder_path, ref_sample_name, lambda_vis=1030.0,
                     peak_sheets[sample] = pd.DataFrame(rows)
 
     # 7. Append peak-fit tables and the matched-normalisation summary
-    #    (wavenumber axis + per-sample matched sum + normalised values)
+    #    (wavenumber axis + per-sample matched sums of sample AND reference
+    #    + normalised values)
     if peak_sheets or matched_df is not None:
         with pd.ExcelWriter(output_excel, engine="openpyxl",
                             mode="a", if_sheet_exists="replace") as writer:

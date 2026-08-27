@@ -211,14 +211,17 @@ class TestWavenumberMatching:
         xl = pd.ExcelFile(excel)
         assert xl.sheet_names[-1] == "Matched_norm"
         m = xl.parse("Matched_norm")
-        assert m.columns[0] == "IR_wavenumber_cm-1"
-        assert "water_sum_matched" in m.columns
-        assert "water_normalized" in m.columns
+        # 4-column layout: wave axis · sample sum · reference sum · normalised
+        assert list(m.columns) == ["IR_wavenumber_cm-1", "water_sum_matched",
+                                   "quartz_sum_matched", "water_normalized"]
         # matched sum == full sum minus the unmatched 3600 component
         w = xl.parse("water")
         expected = w["sum"] - w["3600"]
         assert np.allclose(m["water_sum_matched"].values, expected.values,
                            equal_nan=True)
+        # reference matched all its own wavenumbers → its sum is unchanged
+        assert np.allclose(m["quartz_sum_matched"].values,
+                           xl.parse("quartz")["sum"].values, equal_nan=True)
 
     def test_full_match_keeps_sum_equal(self, tmp_path):
         import pandas as pd
@@ -233,6 +236,24 @@ class TestWavenumberMatching:
         assert np.allclose(m["water_normalized"].values,
                            xl.parse("water_normalized")["normalized_sum"].values,
                            equal_nan=True)
+
+    def test_second_test_sample_gets_suffixed_reference_column(self, tmp_path):
+        """Two test samples against one reference: the first keeps the plain
+        reference column, the second gets a sample-suffixed one (its sweep
+        pairing may differ) instead of a merge collision."""
+        import pandas as pd
+        _make_experiment(tmp_path, samples=("quartz", "water", "oil"))
+        excel = process_experiment(str(tmp_path), "quartz",
+                                   x_ranges=[(3100, 3700)])
+        xl = pd.ExcelFile(excel)
+        m = xl.parse("Matched_norm")
+        assert "quartz_sum_matched" in m.columns  # first sample keeps the plain name
+        suffixed = [c for c in m.columns if c.startswith("quartz_sum_matched_for_")]
+        assert len(suffixed) == 1  # second sample gets its own, no collision
+        assert "water_normalized" in m.columns and "oil_normalized" in m.columns
+        # same sweep coverage here → both reference columns show the same values
+        assert np.allclose(m[suffixed[0]].values,
+                           m["quartz_sum_matched"].values, equal_nan=True)
 
     def test_no_overlap_skips_normalisation(self, tmp_path):
         import pandas as pd

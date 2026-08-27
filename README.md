@@ -9,7 +9,7 @@ Read `.txt` spectra exports · auto-detect reference & samples · background sub
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.8+-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
-![Status](https://img.shields.io/badge/status-v1.4.0-success.svg)
+![Status](https://img.shields.io/badge/status-v1.5.0-success.svg)
 
 **English** · [简体中文](README.zh-CN.md)
 
@@ -30,7 +30,7 @@ Read `.txt` spectra exports · auto-detect reference & samples · background sub
 - **Reads `.txt` spectra** — whitespace-separated two-column exports (wavelength, intensity).
 - **One-click batch processing** — point it at a single experiment folder. It recursively finds every sample, matches each `NoVis` background, and normalises all test samples against **one shared reference** (e.g. quartz). No more copying reference files around.
 - **Multi-folder batches** — a parent folder holding one experiment per subfolder is processed in a single run: each subfolder's reference is auto-detected (`quartz` preferred, changeable), and its `processed/` output lands right next to its data.
-- **Wavenumber-matched normalisation** — if a test sample was measured at wavenumbers the reference lacks, those wavenumbers are excluded from the normalisation automatically (original data untouched); a final `Matched_norm` sheet collects the matched sums and normalised curves.
+- **Wavenumber-matched normalisation** — if a test sample was measured at wavenumbers the reference lacks, those wavenumbers are excluded from the normalisation automatically (original data untouched); a final `Matched_norm` sheet lists, per test sample: wavenumber · matched sample sum · matched reference sum · normalised value.
 - **Optional χ² fit & cosmic-ray removal** — both are switches (off by default). The fit adds the multi-peak Lorentzian curve, per-range fit figures, and a peak table; manual peak centres can be given and refined via instant re-fit.
 - **Cancellable runs** — the run button turns into ✕ Cancel while working; even a slow fit stops within moments, keeping partial results.
 - **Publication-grade figures** — scatter points + smooth fit curve, Helvetica typography, thin axes, no grid. Y-axis auto-scales to the fit, so a single noise spike can't squash the figure.
@@ -67,7 +67,7 @@ Then open the URL printed in the console (default <http://127.0.0.1:5127>).
 
 | File | Content |
 |------|---------|
-| `processed_SFG.xlsx` | AllData · per-sample denoised / normalised sheets · peak tables (χ² fit) · `Matched_norm` (wavenumber-matched sums + normalised values) |
+| `processed_SFG.xlsx` | AllData · per-sample denoised / normalised sheets · peak tables (χ² fit) · `Matched_norm` (wavenumber · matched sample/reference sums · normalised values) |
 | `{sample}_denoised.png` | Per-wavenumber denoised components |
 | `{sample}_full_{line,scatter}.png` | Full-range normalised figures (always produced) |
 | `{sample}_{min}_{max}_{line,scatter,fit}.png` | One set per selected window (`fit` only when χ² fit is on) |

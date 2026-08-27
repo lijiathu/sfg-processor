@@ -4,7 +4,21 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.5.0] — 2026-08-27
+
+### Changed
+- **"Open Output Folder" now lands on the outputs** — in single-experiment
+  mode the button opens the experiment's `processed/` subfolder directly
+  (previously the parent, leaving you to click through); multi-folder runs
+  still open the parent folder. Mode-aware, so a stray `processed/` child
+  cannot hijack a multi-folder click, and re-fit clicks (whose response
+  carries no mode) fall back to the tracked run mode.
+- **`Matched_norm` sheet now carries the reference signal** — each test
+  sample gets a 4-column block: wavenumber · sample matched sum · reference
+  matched sum (e.g. `quartz_sum_matched`) · normalised value, so both sides
+  of the ratio are visible in the sheet. With several test samples against
+  one reference, later samples get a `_for_<sample>` suffixed reference
+  column (their sweep pairing may differ).
 
 ### Fixed
 - **Excel file handle leak** — the re-fit cache opened each generated
