@@ -4,6 +4,16 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- **Excel file handle leak** — the re-fit cache opened each generated
+  `processed_SFG.xlsx` without closing it. On Windows the open handle locked
+  the file (and its whole `processed/` folder could not be deleted) until the
+  app exited, and Python printed an `unclosed file` warning on the next run.
+  The file is now closed immediately after caching. Data and results were
+  never affected.
+
 ## [1.4.0] — 2026-08-27
 
 ### Added

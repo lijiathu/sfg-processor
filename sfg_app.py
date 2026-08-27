@@ -264,15 +264,17 @@ def api_process():
                 # cache normalised spectra so peak positions can be refined fast
                 cache = {}
                 try:
-                    xl = pd.ExcelFile(out)
-                    for s in xl.sheet_names:
-                        if s.endswith("_normalized"):
-                            df = xl.parse(s)
-                            cache[s[:-len("_normalized")]] = {
-                                "x": df["IR_wavenumber_cm-1"].tolist(),
-                                "y": [None if v != v else float(v)
-                                      for v in df["normalized_sum"].tolist()],
-                            }
+                    # context manager: an unclosed handle keeps the file (and
+                    # its processed/ folder) locked on Windows until GC
+                    with pd.ExcelFile(out) as xl:
+                        for s in xl.sheet_names:
+                            if s.endswith("_normalized"):
+                                df = xl.parse(s)
+                                cache[s[:-len("_normalized")]] = {
+                                    "x": df["IR_wavenumber_cm-1"].tolist(),
+                                    "y": [None if v != v else float(v)
+                                          for v in df["normalized_sum"].tolist()],
+                                }
                 except Exception:
                     pass
                 norm_cache[name] = cache
