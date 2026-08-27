@@ -11,6 +11,9 @@ dist/
 # ── PyInstaller / packaging ───────────────
 *.manifest
 
+# archived release executables (see exe_archive/README.md)
+exe_archive/
+
 # ── Virtual envs ──────────────────────────
 venv/
 .venv/
