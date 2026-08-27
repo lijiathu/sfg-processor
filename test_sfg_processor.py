@@ -1,8 +1,29 @@
+import inspect
+import os
+import glob
+
 import pytest
 import numpy as np
 from sfg_processor import (
-    parse_filename, wavelength_to_ir, scan_folder, read_sfg_data, get_sample_names
+    parse_filename, wavelength_to_ir, scan_folder, read_sfg_data, get_sample_names,
+    process_experiment, scan_experiment_folders, JobCancelled, _multi_peak_fit
 )
+
+
+def _write_spectrum(fpath, vis=1030.0, lo=3000, hi=3800, n=120, scale=1.0):
+    """Write a synthetic two-column .txt (SFG nm, intensity) covering [lo, hi] cm⁻¹."""
+    ir = np.linspace(lo, hi, n)
+    sfg_nm = 1.0 / ((1.0 / vis) + ir * 1e-7)
+    y = scale * (1.0 + 0.8 * np.exp(-((ir - 3400.0) ** 2) / (2 * 80.0 ** 2)))
+    fpath.write_text("\n".join(f"{a:.4f} {b:.4f}" for a, b in zip(sfg_nm, y)))
+
+
+def _make_experiment(folder, samples=("quartz", "water"), waves=(3200, 3400, 3600)):
+    """Create a minimal experiment folder: sample+background per sample/wavenumber."""
+    for s in samples:
+        for w in waves:
+            _write_spectrum(folder / f"{s}_{w}_Purge.txt", scale=2.0 if s == "quartz" else 1.0)
+            _write_spectrum(folder / f"{s}_{w}_Purge_NoVis.txt", scale=0.1)
 
 
 class TestParseFilename:
@@ -136,6 +157,153 @@ class TestReadSfgData:
         fpath.write_text("799.3   650\n799.0   645\n")
         df = read_sfg_data(str(fpath))
         assert len(df) == 2
+
+
+class TestProcessExperiment:
+    def _out(self, tmp_path):
+        return tmp_path / "processed"
+
+    def test_basic_run_produces_outputs(self, tmp_path):
+        _make_experiment(tmp_path)
+        excel = process_experiment(str(tmp_path), "quartz",
+                                   x_ranges=[(3100, 3700)])
+        assert os.path.isfile(excel)
+        out = self._out(tmp_path)
+        assert (out / "water_denoised.png").is_file()
+        assert (out / "water_full_line.png").is_file()
+        assert (out / "water_3100_3700_line.png").is_file()
+        assert (out / "water_3100_3700_scatter.png").is_file()
+
+    def test_do_fit_false_skips_fit_outputs(self, tmp_path):
+        _make_experiment(tmp_path)
+        excel = process_experiment(str(tmp_path), "quartz",
+                                   x_ranges=[(3100, 3700)], do_fit=False)
+        out = self._out(tmp_path)
+        assert not glob.glob(str(out / "*_fit.png"))
+        import pandas as pd
+        xl = pd.ExcelFile(excel)
+        assert not [s for s in xl.sheet_names if s.endswith("_peaks")]
+
+    def test_do_fit_true_produces_fit_figure(self, tmp_path):
+        _make_experiment(tmp_path)
+        process_experiment(str(tmp_path), "quartz",
+                           x_ranges=[(3100, 3700)], do_fit=True)
+        assert (self._out(tmp_path) / "water_3100_3700_fit.png").is_file()
+
+    def test_defaults_fit_and_cosmic_off(self):
+        p = inspect.signature(process_experiment).parameters
+        assert p["do_fit"].default is False
+        assert p["cosmic"].default is False
+
+
+class TestWavenumberMatching:
+    def test_mismatched_wavenumber_excluded(self, tmp_path):
+        """Sample has 3200/3400/3600, reference only 3200/3400 → 3600 is
+        dropped from the normalisation; a final Matched_norm sheet carries
+        the per-sample matched sum + normalised values."""
+        import pandas as pd
+        _make_experiment(tmp_path, samples=("quartz", "water"), waves=(3200, 3400))
+        _write_spectrum(tmp_path / "water_3600_Purge.txt")
+        _write_spectrum(tmp_path / "water_3600_Purge_NoVis.txt", scale=0.1)
+        with pytest.warns(UserWarning, match="3600"):
+            excel = process_experiment(str(tmp_path), "quartz",
+                                       x_ranges=[(3100, 3700)])
+        xl = pd.ExcelFile(excel)
+        assert xl.sheet_names[-1] == "Matched_norm"
+        m = xl.parse("Matched_norm")
+        assert m.columns[0] == "IR_wavenumber_cm-1"
+        assert "water_sum_matched" in m.columns
+        assert "water_normalized" in m.columns
+        # matched sum == full sum minus the unmatched 3600 component
+        w = xl.parse("water")
+        expected = w["sum"] - w["3600"]
+        assert np.allclose(m["water_sum_matched"].values, expected.values,
+                           equal_nan=True)
+
+    def test_full_match_keeps_sum_equal(self, tmp_path):
+        import pandas as pd
+        _make_experiment(tmp_path)  # quartz + water, same wavenumbers
+        excel = process_experiment(str(tmp_path), "quartz",
+                                   x_ranges=[(3100, 3700)])
+        xl = pd.ExcelFile(excel)
+        m = xl.parse("Matched_norm")
+        w = xl.parse("water")
+        assert np.allclose(m["water_sum_matched"].values, w["sum"].values,
+                           equal_nan=True)
+        assert np.allclose(m["water_normalized"].values,
+                           xl.parse("water_normalized")["normalized_sum"].values,
+                           equal_nan=True)
+
+    def test_no_overlap_skips_normalisation(self, tmp_path):
+        import pandas as pd
+        _make_experiment(tmp_path, samples=("quartz",), waves=(3200,))
+        _write_spectrum(tmp_path / "water_3400_Purge.txt")
+        _write_spectrum(tmp_path / "water_3400_Purge_NoVis.txt", scale=0.1)
+        with pytest.warns(UserWarning, match="no wavenumber overlap"):
+            excel = process_experiment(str(tmp_path), "quartz",
+                                       x_ranges=[(3100, 3700)])
+        xl = pd.ExcelFile(excel)
+        assert "water_normalized" not in xl.sheet_names
+        assert "Matched_norm" not in xl.sheet_names
+
+    def test_duplicate_wave_sweeps_paired_not_pooled(self, tmp_path):
+        """A second sweep at an already-covered wavenumber must not skew the
+        normalisation: sweeps are paired 1:1, the unpaired excess is dropped
+        with a warning (pooled sums would inflate the ratio ~1.5x here)."""
+        import pandas as pd
+        _make_experiment(tmp_path, samples=("quartz", "water"), waves=(3200, 3400))
+        _write_spectrum(tmp_path / "water_3200_Purge_2.txt", scale=1.0)
+        _write_spectrum(tmp_path / "water_3200_Purge_2_NoVis.txt", scale=0.1)
+        with pytest.warns(UserWarning, match="same sweeps"):
+            excel = process_experiment(str(tmp_path), "quartz",
+                                       x_ranges=[(3100, 3700)])
+        xl = pd.ExcelFile(excel)
+        m = xl.parse("Matched_norm")
+        w = xl.parse("water")
+        # matched sum = full sum minus the unpaired second 3200 sweep
+        expected = w["sum"] - w["3200_1"]
+        assert np.allclose(m["water_sum_matched"].values, expected.values,
+                           equal_nan=True)
+        # ratio stays the per-sweep value (0.9k / 1.9k with k sweeps a side)
+        assert np.nanmean(m["water_normalized"].values) == pytest.approx(
+            1.8 / 3.8, rel=1e-4)
+
+    def test_cancel_check_raises_job_cancelled(self, tmp_path):
+        _make_experiment(tmp_path)
+        with pytest.raises(JobCancelled):
+            process_experiment(str(tmp_path), "quartz", cancel_check=lambda: True)
+
+
+class TestMultiPeakFitCancel:
+    def test_cancel_between_starts_raises(self):
+        ir = np.linspace(3100, 3700, 80)
+        y = 1.0 + 0.8 * np.exp(-((ir - 3400.0) ** 2) / (2 * 60.0 ** 2))
+        calls = {"n": 0}
+
+        def slow_cancel():
+            calls["n"] += 1
+            return calls["n"] > 1  # allow the first start, cancel before the second
+
+        with pytest.raises(JobCancelled):
+            _multi_peak_fit(ir, y, cancel_check=slow_cancel)
+
+
+class TestScanExperimentFolders:
+    def test_returns_subfolders_with_data(self, tmp_path):
+        sub1 = tmp_path / "3200"; sub1.mkdir()
+        sub2 = tmp_path / "3400"; sub2.mkdir()
+        empty = tmp_path / "empty"; empty.mkdir()
+        _make_experiment(sub1, samples=("quartz", "water"))
+        _make_experiment(sub2, samples=("quartz", "Au"))
+        entries = scan_experiment_folders(str(tmp_path))
+        assert [e["name"] for e in entries] == ["3200", "3400"]
+        by_name = {e["name"]: e for e in entries}
+        assert set(by_name["3200"]["samples"]) == {"quartz", "water"}
+        assert set(by_name["3400"]["samples"]) == {"quartz", "Au"}
+        assert os.path.isdir(by_name["3200"]["path"])
+
+    def test_no_subfolders_returns_empty(self, tmp_path):
+        assert scan_experiment_folders(str(tmp_path)) == []
 
 
 def _placeholder_end_of_file():

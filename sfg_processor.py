@@ -10,6 +10,10 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 
+class JobCancelled(Exception):
+    """Raised inside the pipeline when the user requested cancellation."""
+
+
 def parse_filename(fn_stem):
     """
     Parse SFG filename: {sample}_{wavenumber}_{flag1}_{flag2}_...
@@ -74,6 +78,26 @@ def scan_folder(folder_path):
 def get_sample_names(meta_list):
     """Extract unique sample names from metadata."""
     return sorted({m["sample"] for m in meta_list})
+
+
+def scan_experiment_folders(parent_path):
+    """Immediate subfolders of ``parent_path`` that contain parseable .txt data.
+
+    Multi-folder mode: each such subfolder is one independent experiment
+    (its own samples + its own reference). Subfolders without .txt files are
+    ignored. Returns a list of {name, path, samples} sorted by folder name.
+    """
+    entries = []
+    for name in sorted(os.listdir(parent_path)):
+        sub = os.path.join(parent_path, name)
+        if not os.path.isdir(sub):
+            continue
+        try:
+            meta = scan_folder(sub)
+        except (FileNotFoundError, ValueError):
+            continue
+        entries.append({"name": name, "path": sub, "samples": get_sample_names(meta)})
+    return entries
 
 
 def read_sfg_data(fpath):
@@ -154,7 +178,7 @@ def _smooth_fit(x, y):
     return x, y, yf
 
 
-def _multi_peak_fit(x, y, max_peaks=6, peaks_hint=None):
+def _multi_peak_fit(x, y, max_peaks=6, peaks_hint=None, cancel_check=None):
     """Physically-correct SFG fit: I(ω) = |χ_NR·e^{iφ} + Σ A_q/(ω_q-ω-iΓ_q)|².
 
     Builds the complex χ⁽²⁾ (non-resonant with phase + resonant complex
@@ -162,6 +186,8 @@ def _multi_peak_fit(x, y, max_peaks=6, peaks_hint=None):
     physically correct target, vs. naively adding real Lorentzians to the
     intensity). Multi-start initial guesses; keeps the best-R² result.
     ``peaks_hint`` (list of wavenumbers) fixes the initial centres (manual).
+    ``cancel_check`` (callable → bool) is polled between starts; raises
+    JobCancelled when the user cancelled.
     Returns dict {yfit, comps, table, r2, chi_nr, phi} or None on failure.
     """
     from scipy.signal import find_peaks, savgol_filter
@@ -233,6 +259,8 @@ def _multi_peak_fit(x, y, max_peaks=6, peaks_hint=None):
     ss_tot = float(np.sum((y - np.mean(y)) ** 2)) or 1.0
     best = None
     for g in guess_sets:
+        if cancel_check and cancel_check():
+            raise JobCancelled("Cancelled during multi-peak fit")
         try:
             popt, pcov = curve_fit(f, x, y, p0=g, bounds=(lb, ub), maxfev=200000)
         except Exception:
@@ -325,7 +353,7 @@ def smooth_curve(y, frac=0.05):
 
 
 def _plot_nature(norm_df, sample, ref_sample, save_path, xlim=None, mode="fit",
-                 peaks_hint=None):
+                 peaks_hint=None, cancel_check=None):
     """Nature-style spectrum.
 
     mode: 'line' (line only), 'scatter' (points only), 'fit' (points + fit).
@@ -349,7 +377,8 @@ def _plot_nature(norm_df, sample, ref_sample, save_path, xlim=None, mode="fit",
         return None
 
     peak_table = None
-    fit_res = _multi_peak_fit(x, y, peaks_hint=peaks_hint) if mode == "fit" else None
+    fit_res = (_multi_peak_fit(x, y, peaks_hint=peaks_hint, cancel_check=cancel_check)
+               if mode == "fit" else None)
 
     # y-axis starts from 0; upper bound from the raw data so every point shows
     y_top = float(np.nanmax(ys))
@@ -429,7 +458,8 @@ def _plot_sum_curve(df, sample, save_path):
 
 def process_experiment(folder_path, ref_sample_name, lambda_vis=1030.0,
                        x_ranges=None, progress_callback=None,
-                       cosmic=True, peaks_hint=None):
+                       cosmic=False, peaks_hint=None, do_fit=False,
+                       cancel_check=None):
     """
     Main processing: scan, denoise, normalize, output Excel and plots.
 
@@ -439,10 +469,20 @@ def process_experiment(folder_path, ref_sample_name, lambda_vis=1030.0,
         lambda_vis: visible light wavelength (nm)
         x_ranges: list of (min, max) for zoomed plots
         progress_callback: callback(current, total, message)
+        cosmic: remove cosmic-ray spikes from the normalised spectrum
+        peaks_hint: manual peak centres (list of wavenumbers) for the fit
+        do_fit: run the χ⁽²⁾ multi-peak fit (fit figures + peak tables);
+            when False only line/scatter figures are produced
+        cancel_check: callable → bool, polled between stages/samples;
+            raises JobCancelled once it returns True
 
     Returns:
         output_excel path
     """
+    def _cancel():
+        if cancel_check and cancel_check():
+            raise JobCancelled("Cancelled by user")
+
     if x_ranges is None:
         x_ranges = [(3000, 3800)]
     # all outputs go into a dedicated post-processing subfolder
@@ -453,6 +493,7 @@ def process_experiment(folder_path, ref_sample_name, lambda_vis=1030.0,
     # 1. Scan files
     if progress_callback:
         progress_callback(0, 5, "Scanning files...")
+    _cancel()
     meta_list = scan_folder(folder_path)
 
     # 2. Read and convert data
@@ -460,6 +501,7 @@ def process_experiment(folder_path, ref_sample_name, lambda_vis=1030.0,
         progress_callback(1, 5, "Reading data...")
     data_series = {}
     for meta in meta_list:
+        _cancel()
         df = read_sfg_data(meta["path"])
         ir = wavelength_to_ir(df["SFG_nm"].values, lambda_vis)
         series = pd.Series(df["Intensity"].values, index=ir, name=meta["stem"])
@@ -478,12 +520,15 @@ def process_experiment(folder_path, ref_sample_name, lambda_vis=1030.0,
         for m in meta_list
     }
     sample_sheets = {}
+    col_wave = {}  # sample -> {column name: nominal wavenumber}
     for sample in samples:
+        _cancel()
         metas = [m for m in meta_list if m["sample"] == sample and not m["is_background"]]
         if not metas:
             continue
         df_samp = pd.DataFrame({"IR_wavenumber_cm-1": all_ir})
         used_cols = []
+        col_wave[sample] = {}
         for m in sorted(metas, key=lambda x: (x["wave"], "_".join(x["flags"]))):
             colname = str(m["wave"])
             i = 1
@@ -491,6 +536,7 @@ def process_experiment(folder_path, ref_sample_name, lambda_vis=1030.0,
                 colname = f"{colname}_{i}"
                 i += 1
             used_cols.append(colname)
+            col_wave[sample][colname] = m["wave"]
             sfg_series = data_series[m["stem"]].reindex(all_ir).values
             bg_key = (m["sample"], m["wave"],
                       tuple(sorted(f.lower() for f in m["flags"])), True)
@@ -504,24 +550,69 @@ def process_experiment(folder_path, ref_sample_name, lambda_vis=1030.0,
         df_samp["sum"] = df_samp.iloc[:, 1:].sum(axis=1)
         sample_sheets[sample] = df_samp
 
-    # 4. Normalize
+    # 4. Normalize — only over wavenumbers present in BOTH sample and
+    #    reference, so numerator and denominator cover the same sweeps
+    #    (mismatched wavenumbers are dropped and reported).
     if progress_callback:
         progress_callback(3, 5, "Normalising...")
     test_samples = [s for s in samples if s != ref_sample_name]
+    matched_df = None  # combined x / matched-sum / normalised sheet
     for sample in test_samples:
+        _cancel()
         if sample not in sample_sheets or ref_sample_name not in sample_sheets:
             warnings.warn(f"Sample {sample} or reference {ref_sample_name} missing data; skipping normalisation")
             continue
         df_w = sample_sheets[sample]
         df_ref = sample_sheets[ref_sample_name]
+        waves_w = set(col_wave.get(sample, {}).values())
+        waves_r = set(col_wave.get(ref_sample_name, {}).values())
+        matched = sorted(waves_w & waves_r)
+        dropped = sorted(waves_w - waves_r)
+        if dropped:
+            warnings.warn(
+                f"Sample {sample}: wavenumber(s) {dropped} have no counterpart in "
+                f"reference '{ref_sample_name}'; excluded from normalisation")
+        if not matched:
+            warnings.warn(
+                f"Sample {sample}: no wavenumber overlap with reference "
+                f"'{ref_sample_name}'; skipping normalisation")
+            continue
+        # pair columns per wavenumber so both sides cover the SAME sweeps:
+        # with duplicate-wave files (e.g. "3200" and "3200_1") a pooled sum
+        # would skew the ratio by the sweep-count difference — instead pair
+        # them 1:1 and drop (with a warning) the unpaired excess on either side
+        cols_w, cols_r = [], []
+        for w in matched:
+            cw = [c for c, cwv in col_wave[sample].items() if cwv == w]
+            cr = [c for c, cwv in col_wave[ref_sample_name].items() if cwv == w]
+            n = min(len(cw), len(cr))
+            cols_w += cw[:n]
+            cols_r += cr[:n]
+            if len(cw) != len(cr):
+                extra = cw[n:] if len(cw) > len(cr) else cr[n:]
+                warnings.warn(
+                    f"Sample {sample}: wavenumber {w} has {len(cw)} sweep(s) but "
+                    f"reference '{ref_sample_name}' has {len(cr)}; excluded "
+                    f"{extra} so both sides cover the same sweeps")
+        sum_w = df_w[cols_w].sum(axis=1)
+        sum_r = df_ref[cols_r].sum(axis=1)
+
         norm_df = pd.DataFrame()
         norm_df["IR_wavenumber_cm-1"] = df_w["IR_wavenumber_cm-1"]
         with np.errstate(divide="ignore", invalid="ignore"):
-            norm_df["normalized_sum"] = df_w["sum"] / df_ref["sum"]
+            norm_df["normalized_sum"] = sum_w / sum_r
         # optional cosmic-ray spike removal on the normalised spectrum
         if cosmic:
             norm_df["normalized_sum"] = remove_cosmics(norm_df["normalized_sum"].values)
         sample_sheets[sample + "_normalized"] = norm_df
+
+        one = pd.DataFrame({
+            "IR_wavenumber_cm-1": df_w["IR_wavenumber_cm-1"],
+            f"{sample}_sum_matched": sum_w,
+            f"{sample}_normalized": norm_df["normalized_sum"],
+        })
+        matched_df = one if matched_df is None else matched_df.merge(
+            one, on="IR_wavenumber_cm-1", how="outer")
 
     # 5. Write Excel
     with pd.ExcelWriter(output_excel, engine="xlsxwriter") as writer:
@@ -542,6 +633,7 @@ def process_experiment(folder_path, ref_sample_name, lambda_vis=1030.0,
     peak_sheets = {}  # sample -> DataFrame of peak parameters
     # 6a. per-sample denoised + sum-curve (all samples incl. reference)
     for sample in samples:
+        _cancel()
         if sample not in sample_sheets:
             continue
         df = sample_sheets[sample]
@@ -549,6 +641,7 @@ def process_experiment(folder_path, ref_sample_name, lambda_vis=1030.0,
         _plot_sum_curve(df, sample, os.path.join(out_dir, f"{sample}_sum.png"))
     # 6b. normalised figures for test samples
     for sample in test_samples:
+        _cancel()
         norm_key = sample + "_normalized"
         if norm_key not in sample_sheets:
             continue
@@ -558,17 +651,21 @@ def process_experiment(folder_path, ref_sample_name, lambda_vis=1030.0,
                      os.path.join(out_dir, f"{sample}_full_line.png"), mode="line")
         _plot_nature(norm_df, sample, ref_sample_name,
                      os.path.join(out_dir, f"{sample}_full_scatter.png"), mode="scatter")
-        # each selected range: line + scatter + fit
+        # each selected range: line + scatter (+ fit when enabled)
         for x_min, x_max in x_ranges:
+            _cancel()
             _plot_nature(norm_df, sample, ref_sample_name,
                          os.path.join(out_dir, f"{sample}_{x_min}_{x_max}_line.png"),
                          mode="line", xlim=(x_min, x_max))
             _plot_nature(norm_df, sample, ref_sample_name,
                          os.path.join(out_dir, f"{sample}_{x_min}_{x_max}_scatter.png"),
                          mode="scatter", xlim=(x_min, x_max))
+            if not do_fit:
+                continue
             tbl = _plot_nature(norm_df, sample, ref_sample_name,
                                os.path.join(out_dir, f"{sample}_{x_min}_{x_max}_fit.png"),
-                               mode="fit", xlim=(x_min, x_max), peaks_hint=peaks_hint)
+                               mode="fit", xlim=(x_min, x_max), peaks_hint=peaks_hint,
+                               cancel_check=cancel_check)
             if tbl:
                 rows = [{"range": f"{x_min}-{x_max}", **r} for r in tbl]
                 if sample in peak_sheets:
@@ -577,12 +674,15 @@ def process_experiment(folder_path, ref_sample_name, lambda_vis=1030.0,
                 else:
                     peak_sheets[sample] = pd.DataFrame(rows)
 
-    # 7. Append peak-fit tables to the workbook (if multi-peak fit ran)
-    if peak_sheets:
+    # 7. Append peak-fit tables and the matched-normalisation summary
+    #    (wavenumber axis + per-sample matched sum + normalised values)
+    if peak_sheets or matched_df is not None:
         with pd.ExcelWriter(output_excel, engine="openpyxl",
                             mode="a", if_sheet_exists="replace") as writer:
             for sample, df in peak_sheets.items():
                 df.to_excel(writer, sheet_name=(sample + "_peaks")[:31], index=False)
+            if matched_df is not None:
+                matched_df.to_excel(writer, sheet_name="Matched_norm", index=False)
 
     if progress_callback:
         progress_callback(5, 5, "Done!")

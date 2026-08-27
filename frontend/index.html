@@ -81,16 +81,20 @@
     .columns{grid-template-columns:1fr}
   }
   .section-title{
-    display:flex;align-items:baseline;gap:12px;margin:0 0 4px;
     font-family:"Fraunces",serif;font-weight:600;font-size:19px;letter-spacing:-.2px;
+    margin:0 0 4px;
   }
-  .section-title .num{font-family:"JetBrains Mono",monospace;font-size:11px;
-    color:var(--accent);letter-spacing:.12em}
   .section-sub{font-size:13px;color:var(--ink-3);margin:0 0 22px}
 
   .field{display:flex;align-items:center;gap:14px;margin:0 0 11px}
   .field > label{flex:0 0 110px;font-size:13px;color:var(--ink-2);font-weight:500}
   .field .ctrl{flex:1;display:flex;gap:8px;align-items:center}
+  /* sub-setting revealed under its parent switch (peaks under χ² fit);
+     indent gives way on narrow windows so the placeholder never clips */
+  .field.sub{margin-left:124px;animation:subin .22s ease}
+  @keyframes subin{from{opacity:0;transform:translateY(-4px)}}
+  @media(max-width:1250px){.field.sub{margin-left:0}}
+  @media(max-width:620px){.field.sub{margin-left:0}}
   input[type=text],input[type=number],select{
     font-family:"JetBrains Mono",monospace;font-size:13px;color:var(--ink);
     background:#fff;border:1px solid var(--rule-2);border-radius:3px;
@@ -141,6 +145,18 @@
   .readout .tag{font-size:10px;color:#fff;background:var(--accent);padding:1px 7px;border-radius:9px;letter-spacing:.04em}
   .readout .tag.ref{background:var(--accent-2)}
   .readout .waves{color:var(--ink-3)}
+  .readout .folderrow{display:flex;gap:10px;align-items:center;padding:2px 0}
+  .readout .folderrow select{
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink);
+    background:#fff;border:1px solid var(--rule-2);border-radius:3px;
+    padding:3px 6px;margin-left:auto;max-width:220px;
+  }
+  .readout .warn{color:var(--danger);font-size:11px}
+  .gallery .grphead{
+    grid-column:1/-1;font-family:"JetBrains Mono",monospace;font-size:11px;
+    letter-spacing:.08em;color:var(--accent);border-bottom:1px solid var(--rule);
+    padding:2px 0 6px;margin-top:8px;
+  }
 
   /* action */
   .action{margin-top:18px;display:flex;gap:12px;align-items:center}
@@ -156,6 +172,9 @@
   .btn-primary:disabled{opacity:.55;cursor:not-allowed;transform:none;box-shadow:none}
   .btn-primary .arrow{margin-left:10px;display:inline-block;transition:transform .2s}
   .btn-primary:hover:not(:disabled) .arrow{transform:translateX(4px)}
+  .btn-primary.cancel{background:var(--danger);border-color:var(--danger);animation:pulse 1.2s ease-in-out infinite}
+  .btn-primary.cancel:hover{background:#7e2e24}
+  @keyframes pulse{50%{box-shadow:0 0 0 6px rgba(155,58,46,.12)}}
 
   /* progress */
   .progress{margin-top:22px}
@@ -168,7 +187,7 @@
   /* results */
   .results{margin-top:0}
   .col-results .results{display:block !important}
-  .results h3{font-family:"Fraunces",serif;font-weight:600;font-size:16px;margin:0 0 4px}
+  .results h3{font-family:"Fraunces",serif;font-weight:600;font-size:19px;letter-spacing:-.2px;margin:0 0 4px}
   .results .hint{font-size:12.5px;color:var(--ink-3);margin:0 0 16px}
   .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
   .thumb{background:#fff;border:1px solid var(--rule-2);border-radius:3px;overflow:hidden;
@@ -244,7 +263,7 @@
     <div class="columns">
       <!-- LEFT: controls -->
       <div class="col-controls">
-        <h2 class="section-title" data-i18n="t_setup_title">01 / SETUP · Data & Plotting</h2>
+        <h2 class="section-title" data-i18n="t_setup_title">Setup</h2>
         <p class="section-sub" data-i18n="t_setup_sub">Select a .txt data folder, then set the range(s) to plot.</p>
 
         <div class="field">
@@ -269,17 +288,25 @@
         </div>
 
         <div class="field">
-          <label data-i18n="t_lbl_peaks">Peak centres</label>
+          <label data-i18n="t_lbl_cosmic">Cosmic rays</label>
           <div class="ctrl">
-            <input id="peaks" type="text" style="max-width:480px" data-i18n-ph="t_ph_peaks" placeholder="e.g. 3200, 3400, 3700  (blank = auto-detect)" />
+            <label class="switch"><input type="checkbox" id="cosmic" /><span class="track"></span><span class="knob"></span></label>
+            <span class="unit" data-i18n="t_cosmic_sub">remove spike artefacts</span>
           </div>
         </div>
 
         <div class="field">
-          <label data-i18n="t_lbl_cosmic">Cosmic rays</label>
+          <label data-i18n="t_lbl_fit">χ² Fit</label>
           <div class="ctrl">
-            <label class="switch"><input type="checkbox" id="cosmic" checked /><span class="track"></span><span class="knob"></span></label>
-            <span class="unit" data-i18n="t_cosmic_sub">remove spike artefacts</span>
+            <label class="switch"><input type="checkbox" id="fit" /><span class="track"></span><span class="knob"></span></label>
+            <span class="unit" data-i18n="t_fit_sub">multi-peak fit + peak table (slower)</span>
+          </div>
+        </div>
+
+        <div class="field sub" id="peaksField">
+          <label data-i18n="t_lbl_peaks">Peak centres</label>
+          <div class="ctrl">
+            <input id="peaks" type="text" style="max-width:340px" data-i18n-ph="t_ph_peaks" placeholder="e.g. 3200, 3400, 3700 (blank=auto)" />
           </div>
         </div>
 
@@ -308,8 +335,8 @@
             <div class="empty" data-i18n="t_gallery_empty">Run Process & Plot to see the fit figures here.</div>
           </div>
           <div class="result-actions">
-            <button class="btn-tiny" id="refit" data-i18n="t_refit">Re-fit (new peak centres)</button>
             <button class="btn-tiny" id="openfolder" data-i18n="t_openfolder">Open Output Folder</button>
+            <button class="btn-tiny" id="refit" data-i18n="t_refit">Re-fit (new peak centres)</button>
           </div>
         </div>
       </div>
@@ -343,38 +370,50 @@ const I18N = {
   en:{
     t_app_title:"Sum-Frequency Atelier", t_app_kicker:"SFG Vibrational · Spectrum Studio",
     t_help:"? Help", t_lang:"中文",
-    t_setup_title:"01 / SETUP · Data & Plotting", t_setup_sub:"Select a .txt data folder, then set the range(s) to plot.",
+    t_setup_title:"Setup", t_setup_sub:"Select a .txt data folder, then set the range(s) to plot.",
     t_lbl_folder:"Data Folder", t_ph_folder:"Click to select, or paste a path…", t_select:"Select",
     t_lbl_ref:"Reference", t_ref_first:"— Select a folder first —",
     t_lbl_vis:"Visible λ", t_nm:"nm",
-    t_lbl_peaks:"Peak centres", t_ph_peaks:"e.g. 3200, 3400, 3700  (blank = auto-detect)",
+    t_lbl_peaks:"Peak centres", t_ph_peaks:"e.g. 3200, 3400, 3700 (blank=auto)",
     t_lbl_cosmic:"Cosmic rays", t_cosmic_sub:"remove spike artefacts",
+    t_lbl_fit:"χ² Fit", t_fit_sub:"multi-peak fit + peak table (slower)",
     t_add_window:"+ Add window", t_readout_empty:"No data yet · select a folder to preview detected samples.",
     t_run:"Process & Plot →", t_status_ready:"Ready",
-    t_out_title:"Output", t_out_hint:"Fit figures for the selected ranges (click to enlarge). All outputs are in processed/.",
-    t_gallery_empty:"Run Process & Plot to see the fit figures here.",
+    t_out_title:"Output", t_out_hint:"Per-range figures (fit figures when χ² fit is on, scatter otherwise). In multi-folder mode each subfolder gets its own processed/.",
+    t_gallery_empty:"Run Process & Plot to see the figures here.",
     t_refit:"Re-fit (new peak centres)", t_openfolder:"Open Output Folder",
+    t_rescan:"Folder changed — rescanning…",
     t_updates:"Updates ↗", t_footer_right:"read · denoise · normalize · fit",
     t_detecting:"Detecting…", t_processing:"Processing…", t_done:"Done", t_refit_done:"Re-fit done ✦",
-    t_refitting:"Re-fitting…", t_pick_folder:"Pick a folder in the dialog…", t_process_first:"Process first"
+    t_refitting:"Re-fitting…", t_pick_folder:"Pick a folder in the dialog…", t_process_first:"Process first",
+    t_cancel:"✕ Cancel", t_cancelling:"Cancelling…", t_cancelled:"Cancelled",
+    t_multi_head:"One experiment per subfolder · pick its reference:",
+    t_no_ref:"no reference", t_no_ref_any:"No subfolder holds a reference + a test sample",
+    t_skipped:"Skipped", t_no_figs:"No figures for the selected ranges"
   },
   zh:{
     t_app_title:"和频光谱工坊", t_app_kicker:"SFG 振动光谱 · 光谱工作室",
     t_help:"? 说明", t_lang:"EN",
-    t_setup_title:"01 / 设置 · 数据与绘图", t_setup_sub:"选择 .txt 数据文件夹，再设置要绘图的波数段。",
+    t_setup_title:"设置", t_setup_sub:"选择 .txt 数据文件夹，再设置要绘图的波数段。",
     t_lbl_folder:"数据文件夹", t_ph_folder:"点击右侧选择，或直接粘贴路径…", t_select:"选择",
     t_lbl_ref:"标准样品", t_ref_first:"— 请先选择文件夹 —",
     t_lbl_vis:"可见光 λ", t_nm:"nm",
-    t_lbl_peaks:"峰位", t_ph_peaks:"如 3200, 3400, 3700  (留空=自动检测)",
+    t_lbl_peaks:"峰位", t_ph_peaks:"如 3200, 3400, 3700 (留空=自动)",
     t_lbl_cosmic:"宇宙射线", t_cosmic_sub:"去除尖峰干扰",
+    t_lbl_fit:"χ² 拟合", t_fit_sub:"多峰 χ⁽²⁾ 拟合 + 峰参数表（较慢）",
     t_add_window:"+ 添加波数段", t_readout_empty:"暂无数据 · 选择文件夹以预览识别到的样品。",
     t_run:"处理并出图 →", t_status_ready:"就绪",
-    t_out_title:"输出", t_out_hint:"选定波数段的拟合图（点击放大）。所有输出在 processed/ 文件夹。",
-    t_gallery_empty:"点击「处理并出图」在此查看拟合图。",
+    t_out_title:"输出", t_out_hint:"选定波数段的出图（开 χ² 拟合时为拟合图，否则为散点图）。多文件夹模式下输出在各自子文件夹的 processed/。",
+    t_gallery_empty:"点击「处理并出图」在此查看结果图。",
     t_refit:"重新拟合（新峰位）", t_openfolder:"打开输出文件夹",
+    t_rescan:"文件夹已更改——正在重新扫描…",
     t_updates:"更新 ↗", t_footer_right:"读取 · 去噪 · 归一化 · 拟合",
     t_detecting:"识别中…", t_processing:"处理中…", t_done:"完成", t_refit_done:"重新拟合完成 ✦",
-    t_refitting:"重新拟合中…", t_pick_folder:"在弹窗中选择文件夹…", t_process_first:"请先处理一次"
+    t_refitting:"重新拟合中…", t_pick_folder:"在弹窗中选择文件夹…", t_process_first:"请先处理一次",
+    t_cancel:"✕ 取消", t_cancelling:"取消中…", t_cancelled:"已取消",
+    t_multi_head:"每个子文件夹独立处理 · 下拉确认参考样品：",
+    t_no_ref:"缺参考", t_no_ref_any:"没有子文件夹同时具备参考样品和测试样品",
+    t_skipped:"已跳过", t_no_figs:"所选波数段没有生成图"
   }
 };
 let LANG = localStorage.getItem("sfg_lang") || "en";
@@ -384,6 +423,9 @@ function applyLang(){
   document.querySelectorAll("[data-i18n-ph]").forEach(e=>{ e.placeholder = T(e.dataset.i18nPh); });
   $("#langbtn").textContent = T("t_lang");
   document.documentElement.lang = LANG==="zh"?"zh":"en";
+  // keep the cancel label if a job is running (data-i18n would reset it)
+  const rb = document.getElementById("run");
+  if(rb && rb.classList.contains("cancel")) rb.innerHTML = T("t_cancel");
 }
 $("#langbtn").onclick = ()=>{ LANG = LANG==="en"?"zh":"en"; localStorage.setItem("sfg_lang",LANG); applyLang(); applyHelp(); };
 const HELP = {
@@ -400,15 +442,18 @@ const HELP = {
       <li>一个文件夹放：<b>1 个标准样品</b>（如 quartz）+ <b>若干测试样品</b>。</li>
       <li>标准样品做归一化分母，一个可归一化多个测试样品，无需复制。</li>
       <li>支持子文件夹嵌套，递归扫描。</li>
+      <li><b>多文件夹模式</b>：所选文件夹本身没有 .txt、数据都在直接子文件夹里时，每个子文件夹作为<b>独立实验</b>（各含参考+样品），自动识别各自的参考（预览里可改），结果分别写入<b>各子文件夹自己的</b> <code>processed/</code>。</li>
     </ul>
     <h4>3. 操作步骤</h4>
     <ol>
       <li>点 <b>选择</b> 选数据文件夹 → 自动扫描识别样品。</li>
-      <li>确认 <b>标准样品</b>（默认 quartz）。</li>
+      <li>确认 <b>标准样品</b>（默认 quartz；多文件夹模式在预览里逐文件夹确认）。</li>
       <li>设 <b>可见光 λ</b>（默认 1030 nm）。</li>
       <li><b>波数段</b>：点 + 添加波数段 加要出图的范围（如 3000-3750）。</li>
-      <li><b>峰位</b>（可选）：填拟合峰位如 <code>3200, 3400, 3650</code>；留空自动检测。</li>
-      <li>点 <b>处理并出图</b> → 右栏出拟合图。</li>
+      <li><b>χ² 拟合</b>与<b>宇宙射线</b>开关<b>默认关闭</b>；需要拟合曲线/峰参数表或剔尖峰时再打开。</li>
+      <li><b>峰位</b>（拟合开启时显示，可选）：填拟合峰位如 <code>3200, 3400, 3650</code>；留空自动检测。</li>
+      <li>点 <b>处理并出图</b> → 右栏出结果图（拟合开启为拟合图，否则为散点图）。</li>
+      <li>处理过程中按钮变为 <b>✕ 取消</b>，点击随时中止（已生成的文件保留）。</li>
       <li>改峰位 → 点 <b>重新拟合</b> → 秒出新拟合，反复调到满意。</li>
     </ol>
     <h4>4. 输出（在数据文件夹的 <code>processed/</code> 子目录）</h4>
@@ -428,8 +473,9 @@ const HELP = {
     <ul>
       <li><b>没识别到样品</b> → 检查文件名是否符合 <code>样品名_波数_标志.txt</code>。</li>
       <li><b>提示需要标准样品</b> → 至少 1 个标准样品 + 1 个测试样品。</li>
+      <li><b>多文件夹没出结果</b> → 子文件夹需同时含参考样品和测试样品，缺参考的会被跳过并提示。</li>
       <li><b>图片不显示</b> → 确认是有效 .txt 两列格式。</li>
-      <li><b>拟合不好</b> → 手填更准的峰位再重新拟合，或增删峰数量。</li>
+      <li><b>拟合不好</b> → 手填更准的峰位再重新拟合，或增删峰数量；不需要拟合时直接关掉 χ² 拟合开关。</li>
     </ul>`,
   en:`<h3>How to use</h3>
     <h4>1. Data preparation</h4>
@@ -444,15 +490,18 @@ const HELP = {
       <li>Put in one folder: <b>1 reference sample</b> (e.g. quartz) + <b>several test samples</b>.</li>
       <li>The reference is the normalisation denominator; one reference can normalise many test samples — no copying needed.</li>
       <li>Subfolders are scanned recursively.</li>
+      <li><b>Multi-folder mode</b>: when the picked folder itself holds no .txt and the data sits in immediate subfolders, each subfolder becomes an <b>independent experiment</b> (own reference + sample), references auto-detected (adjustable in the preview), and results are written into <b>each subfolder's own</b> <code>processed/</code>.</li>
     </ul>
     <h4>3. Steps</h4>
     <ol>
       <li>Click <b>Select</b> to pick the data folder → samples are auto-detected.</li>
-      <li>Confirm the <b>Reference</b> (default quartz).</li>
+      <li>Confirm the <b>Reference</b> (default quartz; per folder in multi-folder mode).</li>
       <li>Set <b>Visible λ</b> (default 1030 nm).</li>
       <li><b>Wavenumber Windows</b>: click + Add window for each range (e.g. 3000-3750).</li>
-      <li><b>Peak centres</b> (optional): enter fit peaks, e.g. <code>3200, 3400, 3650</code>; blank = auto-detect.</li>
-      <li>Click <b>Process & Plot</b> → the fit figure appears on the right.</li>
+      <li>The <b>χ² Fit</b> and <b>Cosmic rays</b> switches are <b>off by default</b>; turn them on when you need the fit curve/peak table or spike removal.</li>
+      <li><b>Peak centres</b> (shown with the fit switch on, optional): enter fit peaks, e.g. <code>3200, 3400, 3650</code>; blank = auto-detect.</li>
+      <li>Click <b>Process & Plot</b> → figures appear on the right (fit figures when fitting is on, scatter otherwise).</li>
+      <li>While processing the button becomes <b>✕ Cancel</b> — click any time to stop (files already written are kept).</li>
       <li>Edit peaks → click <b>Re-fit</b> → instant new fit; repeat until satisfied.</li>
     </ol>
     <h4>4. Output (in the data folder's <code>processed/</code> subfolder)</h4>
@@ -472,8 +521,9 @@ const HELP = {
     <ul>
       <li><b>No samples detected</b> → check filenames match <code>sample_wavenumber_flags.txt</code>.</li>
       <li><b>Needs a reference</b> → at least 1 reference + 1 test sample in the folder.</li>
+      <li><b>Multi-folder run produced nothing</b> → each subfolder needs a reference plus a test sample; folders lacking one are skipped with a notice.</li>
       <li><b>Image not showing</b> → confirm valid .txt two-column data.</li>
-      <li><b>Poor fit</b> → enter more accurate peak centres and Re-fit, or add/remove peaks.</li>
+      <li><b>Poor fit</b> → enter more accurate peak centres and Re-fit, or add/remove peaks; if you don't need the fit at all, just leave the χ² fit switch off.</li>
     </ul>`
 };
 function applyHelp(){ const c=$("#helpcontent"); if(c) c.innerHTML = HELP[LANG] || HELP.en; }
@@ -481,6 +531,25 @@ applyLang(); applyHelp();
 const results = $("#results"), gallery = $("#gallery");
 const toastEl = $("#toast");
 let res = null;  // last process result (folder, images, excel) — shared with Re-fit
+let scanRes = null;  // last scan response (mode + samples / folders)
+let busy = false;    // a processing job is running (button acts as Cancel)
+let scanPromise = null;  // in-flight /api/scan request (awaited before Process)
+
+/* χ²-fit toggle drives the peaks field + Re-fit button visibility */
+const fit = $("#fit");
+function applyFitUI(){
+  const on = fit.checked;
+  $("#peaksField").style.display = on ? "" : "none";
+  $("#refit").style.display = on ? "" : "none";
+}
+fit.onchange = applyFitUI;
+applyFitUI();
+
+function setCancelMode(on){
+  run.classList.toggle("cancel", on);
+  run.innerHTML = on ? T("t_cancel") : T("t_run");
+  run.disabled = false;
+}
 
 let pollTimer = null;
 
@@ -535,14 +604,39 @@ $("#browse").onclick = async ()=>{
   }catch(e){ toast("Could not open the picker", true); }
 };
 
-async function scan(){
+function scan(){ scanPromise = _scan(); return scanPromise; }
+async function _scan(){
   const f = folder.value.trim();
   if(!f){ toast("Select a data folder first", true); return; }
   ref.innerHTML="<option>"+T("t_detecting")+"</option>";
+  readout.innerHTML=`<div class="empty">${T("t_detecting")}</div>`;
   const r = await fetch("/api/scan",{method:"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify({folder:f})}).then(r=>r.json());
   if(r.error){ readout.innerHTML=`<div class="empty" style="color:var(--danger)">${r.error}</div>`;
-    ref.innerHTML="<option value=''>— None —</option>"; run.disabled=true; return; }
+    ref.innerHTML="<option value=''>— None —</option>"; run.disabled=true; scanRes=null; return; }
+  scanRes = r;
+  /* multi-folder mode: one experiment per subfolder, own reference each */
+  if(r.mode==="multi"){
+    ref.closest(".field").style.display="none";
+    readout.innerHTML = `<div class="empty" style="margin-bottom:6px">${T("t_multi_head")}</div>` +
+      r.folders.map(fd=>{
+        const opts = fd.samples.map(s=>`<option value="${s}" ${s===fd.default?"selected":""}>${s}</option>`).join("");
+        const flag = fd.ok ? `<span class="tag">×${fd.samples.length}</span>`
+                           : `<span class="warn">⚠ ${T("t_no_ref")}</span>`;
+        return `<div class="folderrow">
+          <span class="name">${fd.name}</span>
+          <span class="tag ref">REF</span>
+          <select data-fname="${fd.name}">${opts}</select>
+          ${flag}
+        </div>`;
+      }).join("");
+    const nOk = r.folders.filter(x=>x.ok).length;
+    run.disabled = nOk<1;
+    if(nOk<1) toast(T("t_no_ref_any"), true);
+    return;
+  }
+  /* single-experiment mode (unchanged behaviour) */
+  ref.closest(".field").style.display="";
   ref.innerHTML = r.samples.map(s=>`<option value="${s}" ${s===r.default?"selected":""}>${s}</option>`).join("");
   readout.innerHTML = r.preview.map(p=>`
     <div class="row">
@@ -557,15 +651,51 @@ async function scan(){
 folder.addEventListener("change", ()=>{ if(folder.value.trim()) scan(); });
 
 run.onclick = async ()=>{
+  if(busy){ // acts as Cancel while a job is running
+    fetch("/api/cancel",{method:"POST"});
+    toast(T("t_cancelling"));
+    return;
+  }
   const f = folder.value.trim();
   if(!f){ toast("Select a data folder first", true); return; }
+  // wait for any in-flight scan so the job is never built from the PREVIOUS
+  // folder's scan result (mode / ref / subfolder list would all be stale)
+  if(scanPromise){ try{ await scanPromise; }catch(e){} }
+  if(!scanRes || scanRes.folder !== f){
+    toast(T("t_rescan"), true);
+    scan();
+    return;
+  }
   const ranges = getRanges();
-  results.style.display="none"; prog.style.display="block";
-  run.disabled=true; barfill.style.width="0%"; pct.textContent="0%";
-  statustext.textContent="Starting…";
   const peaks=$("#peaks").value.split(",").map(s=>s.trim()).filter(Boolean);
-  await fetch("/api/process",{method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({folder:f, ref:ref.value, vis:parseFloat(vis.value)||1030, ranges, cosmic:$("#cosmic").checked, peaks})});
+  const common = {vis:parseFloat(vis.value)||1030, ranges,
+                  cosmic:$("#cosmic").checked, fit:fit.checked, peaks};
+  let body;
+  if(scanRes && scanRes.mode==="multi"){
+    const folders=[...readout.querySelectorAll("select[data-fname]")]
+      .map(sel=>({name:sel.dataset.fname, ref:sel.value}));
+    body = {mode:"multi", folder:f, folders, ...common};
+  }else{
+    body = {folder:f, ref:ref.value, ...common};
+  }
+  results.style.display="none"; prog.style.display="block";
+  barfill.style.width="0%"; pct.textContent="0%";
+  statustext.textContent="Starting…";
+  busy=true; setCancelMode(true);
+  let resp = null;
+  try{
+    resp = await fetch("/api/process",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(body)}).then(r=>r.json());
+  }catch(e){ resp = {error:"Could not reach the server"}; }
+  if(resp.error){
+    // 400/409: no job started — don't poll (the previous run's result would
+    // otherwise be redisplayed as if it were this run's output)
+    busy=false; setCancelMode(false);
+    results.style.display=""; prog.style.display="none";
+    statustext.textContent="Failed";
+    toast(resp.error, true);
+    return;
+  }
   pollTimer = setInterval(checkStatus, 350);
 };
 
@@ -576,34 +706,58 @@ function checkStatus(){
     barfill.style.width=p+"%"; pct.textContent=p+"%";
     statustext.textContent=s.message;
     if(s.done){
-      clearInterval(pollTimer); pollTimer=null; run.disabled=false;
-      if(s.error){ toast("Failed: "+s.error, true); statustext.textContent="Failed"; }
-      else if(s.result){ showResult(s.result); }
+      clearInterval(pollTimer); pollTimer=null;
+      busy=false; setCancelMode(false);
+      if(s.cancelled){
+        // folders that finished before the cancel stay visible & usable
+        if(s.result){
+          showResult(s.result, true);
+          const nt = s.result.notes || [];
+          if(nt.length) toast(nt.join(" · "));
+        } else { results.style.display=""; }
+        statustext.textContent=T("t_cancelled"); toast(T("t_cancelled"));
+        return;
+      }
+      if(s.error){ toast("Failed: "+s.error, true); statustext.textContent="Failed"; return; }
+      if(s.result){
+        showResult(s.result);
+        const sk = s.result.skipped || [];
+        if(sk.length) toast(T("t_skipped")+": "+sk.join("; "), true);
+        const nt = s.result.notes || [];
+        if(nt.length) toast(nt.join(" · "));
+      }
     }
   });
 }
 
-function showResult(data){
+function showResult(data, quiet){
   res = data;  // stash for Re-fit
-  statustext.textContent=T("t_done");
-  toast(T("t_done"));
+  if(!quiet){ statustext.textContent=T("t_done"); toast(T("t_done")); }
   results.style.display="block";
-  renderGallery(res.images, res.folder);
-  // excel download + open folder
-  const ex = res.excel;
-  const dl = `/file?folder=${encodeURIComponent(res.folder)}&path=${encodeURIComponent(ex)}&download=1`;
+  renderGallery(res.images);
   $("#openfolder").onclick = ()=>fetch("/api/open",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({folder:res.folder})});
 }
 
-/* shared gallery renderer (cache-busted so Re-fit always shows fresh images) */
-function renderGallery(images, folder){
+/* shared gallery renderer (cache-busted so Re-fit always shows fresh images).
+   images: [{folder: subfolderName|"", file: name.png}] — grouped by folder. */
+function renderGallery(images){
   const bust="&t="+Date.now();
-  gallery.innerHTML = (images||[]).map(p=>{
-    const name=p.split(/[\\/]/).pop().replace(/\.png$/,"");
-    const file=p.split(/[\\/]/).pop();
-    const url=`/img?name=${encodeURIComponent(file)}${bust}`;
-    return `<a class="thumb" href="${url}" target="_blank"><img src="${url}"/><div class="cap">${name}</div></a>`;
-  }).join("") || `<div class="empty">No fit figures in this range</div>`;
+  const groups=new Map();
+  (images||[]).forEach(it=>{
+    const k=it.folder||"";
+    if(!groups.has(k)) groups.set(k,[]);
+    groups.get(k).push(it.file);
+  });
+  let html="";
+  for(const [k,files] of groups){
+    if(k) html+=`<div class="grphead">📁 ${k}</div>`;
+    html+=files.map(file=>{
+      const name=file.replace(/\.png$/,"");
+      const url=`/img?name=${encodeURIComponent(file)}&folder=${encodeURIComponent(k)}${bust}`;
+      return `<a class="thumb" href="${url}" target="_blank"><img src="${url}"/><div class="cap">${name}</div></a>`;
+    }).join("");
+  }
+  gallery.innerHTML = html || `<div class="empty">${T("t_no_figs")}</div>`;
 }
 
 /* iterative peak-centre refinement: re-fit the cached data, refresh gallery */
@@ -615,9 +769,9 @@ $("#refit").onclick = async ()=>{
   const r=await fetch("/api/refit",{method:"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify({folder:res.folder, ref:ref.value, ranges, peaks})}).then(x=>x.json());
   if(r.error){ toast(r.error,true); return; }
-  res.images=r.images; res.folder=r.folder;
+  res.images=r.images;
   results.style.display="block";
-  renderGallery(r.images, r.folder);
+  renderGallery(r.images);
   toast(T("t_refit_done"));
 };
 

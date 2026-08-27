@@ -4,6 +4,49 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.4.0] — 2026-08-27
+
+### Added
+- **Multi-folder batch mode** — point the tool at a parent folder holding one
+  experiment per subfolder. Each subfolder's reference is auto-detected
+  (`quartz` preferred, changeable per folder), and every subfolder gets its own
+  `processed/` output. Folders without a reference + test sample are skipped
+  and reported. A stray notes/readme `.txt` in the parent no longer flips
+  detection (only parseable data files count). Single-experiment folders keep
+  working exactly as before.
+- **Wavenumber-matched normalisation** — when a test sample was measured at
+  wavenumbers the reference lacks, those wavenumbers are excluded from the
+  normalisation (original data and all existing Excel sheets are untouched; a
+  warning is surfaced in the UI). Duplicate sweeps of the same wavenumber are
+  paired 1:1 between sample and reference so both sides cover the same sweeps;
+  the unpaired excess is dropped with a warning. A final `Matched_norm` sheet
+  collects the IR wavenumber axis plus each sample's matched sum and
+  normalised values.
+- **Cancel button** — the run button becomes ✕ Cancel while processing;
+  cancellation is checked between stages, per sample, and between fit
+  multi-starts, so even a slow fit stops within moments. Folders finished
+  before the cancel keep their results visible (gallery, re-fit, output
+  folder button).
+- **Bilingual UI (EN / 中文)** — one-click language toggle; every label,
+  toast, and the built-in help guide are translated.
+
+### Changed
+- **χ² fit and cosmic-ray removal both default OFF** — the two slower /
+  optional steps are now explicit switches (fit adds the peak table + fit
+  figures; cosmic cleans spike artefacts). The peak-centres input appears
+  directly under the fit switch only when it is on.
+- Gallery shows fit figures when χ² fit is on, scatter figures otherwise;
+  in multi-folder mode thumbnails are grouped per subfolder.
+- Headers unified: `Setup` / `Output` columns, same typography.
+
+### Fixed
+- Single-experiment failures are reported as errors again (not "Done · 1
+  skipped"); in multi-folder mode a bad folder still doesn't stop the rest.
+- Process-start errors (400/409) are shown instead of silently redisplaying
+  the previous run's result; clicking Process right after editing the folder
+  path now waits for the re-scan instead of submitting the previous folder's
+  mode/reference.
+
 ## [1.3.0] — 2026-07-12
 
 ### Added

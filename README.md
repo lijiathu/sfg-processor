@@ -9,7 +9,7 @@ Read `.txt` spectra exports · auto-detect reference & samples · background sub
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.8+-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
-![Status](https://img.shields.io/badge/status-v1.0.0-success.svg)
+![Status](https://img.shields.io/badge/status-v1.4.0-success.svg)
 
 **English** · [简体中文](README.zh-CN.md)
 
@@ -29,9 +29,13 @@ Read `.txt` spectra exports · auto-detect reference & samples · background sub
 
 - **Reads `.txt` spectra** — whitespace-separated two-column exports (wavelength, intensity).
 - **One-click batch processing** — point it at a single experiment folder. It recursively finds every sample, matches each `NoVis` background, and normalises all test samples against **one shared reference** (e.g. quartz). No more copying reference files around.
+- **Multi-folder batches** — a parent folder holding one experiment per subfolder is processed in a single run: each subfolder's reference is auto-detected (`quartz` preferred, changeable), and its `processed/` output lands right next to its data.
+- **Wavenumber-matched normalisation** — if a test sample was measured at wavenumbers the reference lacks, those wavenumbers are excluded from the normalisation automatically (original data untouched); a final `Matched_norm` sheet collects the matched sums and normalised curves.
+- **Optional χ² fit & cosmic-ray removal** — both are switches (off by default). The fit adds the multi-peak Lorentzian curve, per-range fit figures, and a peak table; manual peak centres can be given and refined via instant re-fit.
+- **Cancellable runs** — the run button turns into ✕ Cancel while working; even a slow fit stops within moments, keeping partial results.
 - **Publication-grade figures** — scatter points + smooth fit curve, Helvetica typography, thin axes, no grid. Y-axis auto-scales to the fit, so a single noise spike can't squash the figure.
 - **Always-on full-range figure** — every run emits a full-range normalised plot, plus one zoomed plot for each wavenumber window you select.
-- **Refined interface** — a clean web UI with a native folder picker, live progress bar, and an inline result gallery.
+- **Refined interface** — a clean desktop-window UI with a native folder picker, live progress bar, inline result gallery, and an EN / 中文 language toggle.
 - **Standalone executable** — package it as a single Windows `.exe`; recipients need no Python.
 
 ## 📦 Installation
@@ -54,19 +58,21 @@ Then open the URL printed in the console (default <http://127.0.0.1:5127>).
 
 ## 🚀 Usage
 
-1. Click **选择目录** and pick your experiment folder.
+1. Click **Select** and pick your experiment folder (a parent folder of experiment subfolders works too — each subfolder is processed with its own auto-detected reference).
 2. The tool scans and previews every detected sample — the reference is auto-selected (`quartz` if present) and you can change it in the dropdown.
-3. Adjust the visible-light wavelength and add/remove zoomed wavenumber windows as needed.
-4. Click **处理并出图**. When the progress bar finishes, the gallery shows the figures and the Excel workbook is ready in the same folder.
+3. Adjust the visible-light wavelength and add/remove zoomed wavenumber windows as needed; switch on χ² fit / cosmic-ray removal if you want them.
+4. Click **Process & Plot**. When the progress bar finishes, the gallery shows the figures and the Excel workbook is ready in the data folder.
 
-### Output (written into your data folder)
+### Output (written into `processed/` inside your data folder)
 
 | File | Content |
 |------|---------|
-| `processed_SFG.xlsx` | AllData · per-sample denoised · per-sample normalised sheets |
-| `{sample}_normalized_full.png` | Full-range normalised figure (always produced) |
-| `{sample}_normalized_{min}_{max}.png` | One zoomed figure per selected window |
+| `processed_SFG.xlsx` | AllData · per-sample denoised / normalised sheets · peak tables (χ² fit) · `Matched_norm` (wavenumber-matched sums + normalised values) |
 | `{sample}_denoised.png` | Per-wavenumber denoised components |
+| `{sample}_full_{line,scatter}.png` | Full-range normalised figures (always produced) |
+| `{sample}_{min}_{max}_{line,scatter,fit}.png` | One set per selected window (`fit` only when χ² fit is on) |
+
+In multi-folder mode every subfolder gets its own `processed/` with all of the above.
 
 ## 🧪 Try it on the bundled example
 
